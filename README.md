@@ -10,8 +10,12 @@
   <br><br>
 
   <!-- Buy Me a Coffee Button -->
-  <a href="https://www.buymeacoffee.com/Emberlog"><img src="https://img.buymeacoffee.com/button-api/?text=Buy me a coffee&emoji=☕&slug=Emberlog&button_colour=FFDD00&font_colour=000000&font_family=Cookie&outline_colour=000000&coffee_colour=ffffff" /></a>
-  <br>
+  <a href="https://www.buymeacoffee.com/Emberlog" target="_blank">
+    <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 50px !important;width: 180px !important;" >
+  </a>
+  
+  <br><br>
+  
   <i>If you love Kryptos, consider supporting the development!</i>
 
 </div>
