@@ -81,6 +81,7 @@ class MainActivity : AppCompatActivity() {
     private var isKeyboardVisible = false
     private val currentSuggestions = mutableListOf<String>()
     private var isUpdatingUrl = false
+    private var isReaderMode = false
 
     private var lastFailedUrl: String? = null
     private lateinit var prefs: android.content.SharedPreferences
@@ -99,9 +100,7 @@ class MainActivity : AppCompatActivity() {
     private var customViewCallback: WebChromeClient.CustomViewCallback? = null
     private var isImmersiveMode = false
 
-    // ==========================================
-    // INCOGNITO AUTO-KILL STATE & DETECTION
-    // ==========================================
+    // Incognito Auto-Kill State & Detection
     private val isWipingAndKilling = AtomicBoolean(false)
     private var userLeftViaHomeOrRecents = false
     private val screenOffCheckHandler = Handler(Looper.getMainLooper())
@@ -168,7 +167,6 @@ class MainActivity : AppCompatActivity() {
                     }
                     val main = currentMainRef?.get() ?: return
 
-                    // Only trigger when ALL browser activities have stopped (none visible in foreground)
                     if (startedActivityCount == 0 && !activity.isChangingConfigurations && main.shouldKillIncognito()) {
                         if (!main.userLeftViaHomeOrRecents || main.isScreenOffOrLocked()) {
                             main.executeIncognitoKillNow()
@@ -830,16 +828,15 @@ class MainActivity : AppCompatActivity() {
 
         findViewById<ImageButton>(R.id.btn_menu)?.setOnClickListener { view ->
             val popup = PopupMenu(this, view)
-            val isDark = prefs.getBoolean("dark_mode", true)
-            val themeText = if (isDark) "Switch to Light Mode" else "Switch to Dark Mode"
-
+            
+            // Menu order fixed as requested (Settings at bottom, Switch Theme removed)
             popup.menu.add(0, 1, 1, "Incognito Mode")
             popup.menu.add(0, 2, 2, "History")
             popup.menu.add(0, 5, 5, "Bookmarks")
-            popup.menu.add(0, 3, 3, themeText)
-            popup.menu.add(0, 4, 4, "Settings")
             popup.menu.add(0, 6, 6, "Desktop Site")
             popup.menu.add(0, 8, 8, "Downloads")
+            popup.menu.add(0, 9, 9, "Reader Mode")
+            popup.menu.add(0, 4, 4, "Settings")
 
             popup.setOnMenuItemClickListener { item ->
                 when (item.itemId) {
@@ -857,19 +854,26 @@ class MainActivity : AppCompatActivity() {
                     }
                     2 -> { startActivity(Intent(this, HistoryActivity::class.java)); true }
                     5 -> { startActivity(Intent(this, BookmarksActivity::class.java)); true }
-                    3 -> {
-                        val newMode = !isDark
-                        prefs.edit().putBoolean("dark_mode", newMode).apply()
-                        AppCompatDelegate.setDefaultNightMode(if (newMode) AppCompatDelegate.MODE_NIGHT_YES else AppCompatDelegate.MODE_NIGHT_NO)
-                        recreate(); true
-                    }
-                    4 -> { startActivity(Intent(this, SettingsActivity::class.java)); true }
                     6 -> {
                         toggleDesktopMode()
                         true
                     }
                     8 -> { startActivity(Intent(this, DownloadsActivity::class.java)); true }
+                    9 -> {
+                        toggleReaderMode()
+                        true
+                    }
+                    4 -> { startActivity(Intent(this, SettingsActivity::class.java)); true }
                     else -> false
+                }
+            }
+            // Stop dock timer while menu is open, restart when closed
+            if (this::dockController.isInitialized) {
+                dockController.stopTimer()
+            }
+            popup.setOnDismissListener {
+                if (this::dockController.isInitialized) {
+                    dockController.resetAutoHideTimer()
                 }
             }
             popup.show()
@@ -984,8 +988,10 @@ class MainActivity : AppCompatActivity() {
     private fun showHomepageUI() {
         hideSuggestions()
         if (this::webView.isInitialized) {
-            webView.loadUrl("about:blank")
+            // Force clear cache and history to ensure state is wiped
             webView.clearHistory()
+            webView.clearCache(true)
+            webView.loadUrl("about:blank")
         }
         TabManager.updateActiveTabTitle("Home", "kryptos://home")
         homepageContainer?.visibility = View.VISIBLE
@@ -1049,11 +1055,15 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        applyForceDarkMode()
+    }
+
+    private fun applyForceDarkMode() {
         val isDarkForced = prefs.getBoolean("force_dark_mode", false)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            settings.isAlgorithmicDarkeningAllowed = isDarkForced
+            webView.settings.isAlgorithmicDarkeningAllowed = isDarkForced
         } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            settings.forceDark = if (isDarkForced) android.webkit.WebSettings.FORCE_DARK_ON else android.webkit.WebSettings.FORCE_DARK_OFF
+            webView.settings.forceDark = if (isDarkForced) android.webkit.WebSettings.FORCE_DARK_ON else android.webkit.WebSettings.FORCE_DARK_OFF
         }
     }
 
@@ -1097,6 +1107,52 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, "Mobile Site Enabled", Toast.LENGTH_SHORT).show()
         }
         webView.reload()
+    }
+
+    // ==========================================
+    // READER MODE
+    // ==========================================
+    private fun toggleReaderMode() {
+        isReaderMode = !isReaderMode
+        
+        if (isReaderMode) {
+            val readerJS = """
+                (function() {
+                    var elementsToRemove = document.querySelectorAll('header, footer, nav, aside, .ad, .ads, .advertisement, .sidebar, script, iframe, noscript, [role="banner"], [role="navigation"]');
+                    for (var i = 0; i < elementsToRemove.length; i++) {
+                        elementsToRemove[i].style.display = 'none';
+                    }
+                    
+                    var body = document.body;
+                    body.style.backgroundColor = '#0B0B0D';
+                    body.style.color = '#FFFFFF';
+                    body.style.fontSize = '18px';
+                    body.style.lineHeight = '1.6';
+                    body.style.padding = '20px';
+                    body.style.maxWidth = '800px';
+                    body.style.margin = '0 auto';
+                    
+                    var images = document.querySelectorAll('img');
+                    for (var i = 0; i < images.length; i++) {
+                        images[i].style.maxWidth = '100%';
+                        images[i].style.height = 'auto';
+                        images[i].style.borderRadius = '8px';
+                    }
+                    
+                    var textElements = document.querySelectorAll('p, h1, h2, h3, h4, h5, h6, li, span');
+                    for (var i = 0; i < textElements.length; i++) {
+                        textElements[i].style.color = '#FFFFFF';
+                        textElements[i].style.fontFamily = 'sans-serif';
+                    }
+                })();
+            """.trimIndent()
+            
+            webView.evaluateJavascript(readerJS, null)
+            Toast.makeText(this, "Reader Mode ON", Toast.LENGTH_SHORT).show()
+        } else {
+            webView.reload()
+            Toast.makeText(this, "Reader Mode OFF", Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun toggleImmersiveMode() {
@@ -1289,8 +1345,6 @@ class MainActivity : AppCompatActivity() {
                 window.setBackgroundDrawable(ColorDrawable(Color.BLACK))
                 findViewById<View>(android.R.id.content)?.visibility = View.INVISIBLE
 
-                // Wipe WebView contents & storage WITHOUT detaching/destroying the WebView here
-                // (destroying WebView happens in onDestroy() so singleTask reuse never crashes)
                 if (this::webView.isInitialized) {
                     webView.visibility = View.INVISIBLE
                     webView.stopLoading()
@@ -1369,6 +1423,7 @@ class MainActivity : AppCompatActivity() {
             webView.visibility = View.VISIBLE
         }
         updateSecureFlag()
+        applyForceDarkMode() // Applies Force Dark Mode immediately when resumed
 
         val isFullscreenEnabled = prefs.getBoolean("fullscreen_mode", false)
         if (isFullscreenEnabled && !isImmersiveMode) {
@@ -1405,17 +1460,13 @@ class MainActivity : AppCompatActivity() {
         super.onPause()
     }
 
-    override fun onStop() {
-        super.onStop()
-        // Activity-level stop handling is coordinated via startedActivityCount in registerActivityTracker
-        // so opening TabsActivity/SettingsActivity never triggers a false kill.
-    }
-
     override fun onSaveInstanceState(outState: Bundle) {
         if (TabManager.hasIncognitoTabs() || isWipingAndKilling.get()) {
             outState.clear()
             return
         }
+        // We don't save WebView state to prevent it from loading old pages when returning from Recents
+        outState.clear() 
         super.onSaveInstanceState(outState)
     }
 
