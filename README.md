@@ -10,6 +10,8 @@
 
 <br>
 
+<a href="https://www.buymeacoffee.com/Emberlog"><img src="https://img.buymeacoffee.com/button-api/?text=Buy me a coffee&emoji=☕&slug=Emberlog&button_colour=FFDD00&font_colour=000000&font_family=Cookie&outline_colour=000000&coffee_colour=ffffff" /></a>
+
 **Kryptos** is a high-performance, privacy-focused Android browser designed with a deep matte black and neon green dark sci-fi theme. Built entirely from a mobile phone using GitHub Actions.
 
 ---
@@ -76,4 +78,3 @@ This project runs on a completely cloud-based workflow. No PC is required.
 
 **Rishabh**
 *Built with passion, purely from an Android Phone.* 📱
-<a href="https://www.buymeacoffee.com/Emberlog"><img src="https://img.buymeacoffee.com/button-api/?text=Buy me a coffee&emoji=☕&slug=Emberlog&button_colour=FFDD00&font_colour=000000&font_family=Cookie&outline_colour=000000&coffee_colour=ffffff" /></a>
