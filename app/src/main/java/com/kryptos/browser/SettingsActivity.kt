@@ -15,6 +15,7 @@ import android.webkit.CookieManager
 import android.webkit.WebStorage
 import android.widget.Switch
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.content.FileProvider
@@ -103,14 +104,12 @@ class SettingsActivity : AppCompatActivity() {
 
         // Check for Updates
         txtCheckUpdates.setOnClickListener {
-            showCustomToast("Checking for updates...")
-            checkForUpdates()
+            showCheckingDialog()
         }
     }
 
     override fun onResume() {
         super.onResume()
-        // If user just returned from enabling "Install unknown apps" permission, resume install automatically
         val apkToInstall = pendingUpdateFile
         if (apkToInstall != null && apkToInstall.exists()) {
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O || packageManager.canRequestPackageInstalls()) {
@@ -120,7 +119,24 @@ class SettingsActivity : AppCompatActivity() {
         }
     }
 
-    private fun checkForUpdates() {
+    private fun showCheckingDialog() {
+        val dialog = Dialog(this)
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
+        dialog.setContentView(R.layout.dialog_custom)
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        dialog.setCancelable(false)
+
+        val title = dialog.findViewById<TextView>(R.id.dialog_title)
+        val message = dialog.findViewById<TextView>(R.id.dialog_message)
+        val btnCancel = dialog.findViewById<TextView>(R.id.btn_dialog_cancel)
+        val btnConfirm = dialog.findViewById<TextView>(R.id.btn_dialog_confirm)
+
+        title.text = "Updates"
+        message.text = "Checking for updates..."
+        btnCancel.visibility = View.GONE
+        btnConfirm.visibility = View.GONE
+        dialog.show()
+
         Thread {
             try {
                 val url = URL("https://api.github.com/repos/RishabhIsGreat77/Kryptos-Browser/releases/latest")
@@ -143,6 +159,7 @@ class SettingsActivity : AppCompatActivity() {
                     val currentVersion = extractVersionNumbers(packageInfo.versionName ?: "1.0.0")
 
                     runOnUiThread {
+                        dialog.dismiss()
                         if (latestVersion.isNotEmpty() && isNewerVersion(latestVersion, currentVersion)) {
                             val assets = json.optJSONArray("assets")
                             var downloadUrl = ""
@@ -166,11 +183,15 @@ class SettingsActivity : AppCompatActivity() {
                     }
                 } else {
                     runOnUiThread {
+                        dialog.dismiss()
                         showCustomToast("Could not check updates (HTTP $responseCode)")
                     }
                 }
             } catch (e: Exception) {
-                runOnUiThread { showCustomToast("Failed to check updates: ${e.message}") }
+                runOnUiThread { 
+                    dialog.dismiss()
+                    showCustomToast("Failed to check updates: ${e.message}") 
+                }
             }
         }.start()
     }
@@ -226,16 +247,11 @@ class SettingsActivity : AppCompatActivity() {
 
         Thread {
             try {
-                // Flush cookies before update so all active login sessions are persisted to disk
-                try {
-                    CookieManager.getInstance().flush()
-                } catch (e: Exception) { }
+                try { CookieManager.getInstance().flush() } catch (e: Exception) { }
 
                 val targetDir = externalCacheDir ?: cacheDir
                 val apkFile = File(targetDir, "kryptos_update.apk")
-                if (apkFile.exists()) {
-                    apkFile.delete()
-                }
+                if (apkFile.exists()) apkFile.delete()
 
                 var currentUrl = apkUrl
                 var redirects = 0
@@ -321,7 +337,8 @@ class SettingsActivity : AppCompatActivity() {
         val btnCancel = dialog.findViewById<TextView>(R.id.btn_dialog_cancel)
         val btnConfirm = dialog.findViewById<TextView>(R.id.btn_dialog_confirm)
 
-        title.visibility = View.GONE
+        title.text = "Message"
+        title.visibility = View.VISIBLE
         btnCancel.visibility = View.GONE
         btnConfirm.text = "OK"
         msg.text = message
