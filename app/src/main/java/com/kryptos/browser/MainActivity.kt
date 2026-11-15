@@ -37,6 +37,7 @@ import android.view.ViewGroup
 import android.view.Window
 import android.view.WindowManager
 import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputMethodManager
 import android.webkit.CookieManager
 import android.webkit.URLUtil
 import android.webkit.WebChromeClient
@@ -78,9 +79,8 @@ class MainActivity : AppCompatActivity() {
     private val suggestionHandler = Handler(Looper.getMainLooper())
     private var suggestionRunnable: Runnable? = null
     private var isKeyboardVisible = false
-    private var currentSuggestions = mutableListOf<String>()
+    private val currentSuggestions = mutableListOf<String>()
     private var isUpdatingUrl = false
-    private var isReaderMode = false
 
     private var lastFailedUrl: String? = null
     private lateinit var prefs: android.content.SharedPreferences
@@ -99,10 +99,11 @@ class MainActivity : AppCompatActivity() {
     private var customViewCallback: WebChromeClient.CustomViewCallback? = null
     private var isImmersiveMode = false
 
-    // Incognito Auto-Kill State & Detection
+    // ==========================================
+    // INCOGNITO AUTO-KILL STATE & DETECTION
+    // ==========================================
     private val isWipingAndKilling = AtomicBoolean(false)
     private var userLeftViaHomeOrRecents = false
-    private var isLaunchingInternalActivity = false
     private val screenOffCheckHandler = Handler(Looper.getMainLooper())
     private val pollDelays = longArrayOf(100L, 250L, 500L, 850L, 1300L)
 
@@ -122,6 +123,7 @@ class MainActivity : AppCompatActivity() {
         private val trackedActivities = mutableListOf<WeakReference<Activity>>()
         private var currentMainRef: WeakReference<MainActivity>? = null
         private var lifecycleCallbacksRegistered = false
+        private var startedActivityCount = 0
 
         private fun registerActivityTracker(app: Application, mainActivity: MainActivity) {
             currentMainRef = WeakReference(mainActivity)
@@ -139,21 +141,21 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 override fun onActivityStarted(activity: Activity) {
+                    if (activity !is SplashActivity) {
+                        startedActivityCount++
+                    }
                     applySecureStateToActivity(activity)
                 }
 
                 override fun onActivityResumed(activity: Activity) {
                     applySecureStateToActivity(activity)
                     val main = currentMainRef?.get()
-                    if (main != null && activity !== main) {
-                        main.isLaunchingInternalActivity = false
+                    if (main != null) {
+                        main.userLeftViaHomeOrRecents = false
                     }
                 }
 
                 override fun onActivityPaused(activity: Activity) {
-                    if (TabManager.hasIncognitoTabs()) {
-                        activity.window?.setBackgroundDrawable(ColorDrawable(Color.BLACK))
-                    }
                     val main = currentMainRef?.get()
                     if (main != null && main.isScreenOffOrLocked() && main.shouldKillIncognito()) {
                         main.executeIncognitoKillNow()
@@ -161,9 +163,14 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 override fun onActivityStopped(activity: Activity) {
-                    val main = currentMainRef?.get()
-                    if (main != null && main.shouldKillIncognito()) {
-                        if (main.isScreenOffOrLocked()) {
+                    if (activity !is SplashActivity) {
+                        startedActivityCount = (startedActivityCount - 1).coerceAtLeast(0)
+                    }
+                    val main = currentMainRef?.get() ?: return
+
+                    // Only trigger when ALL browser activities have stopped (none visible in foreground)
+                    if (startedActivityCount == 0 && !activity.isChangingConfigurations && main.shouldKillIncognito()) {
+                        if (!main.userLeftViaHomeOrRecents || main.isScreenOffOrLocked()) {
                             main.executeIncognitoKillNow()
                         } else {
                             main.scheduleScreenOffPolls()
@@ -231,6 +238,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         if (intent?.getBooleanExtra("from_splash", false) == true) {
+            isWipingAndKilling.set(false)
             prefs.edit().putBoolean("pending_incognito_exit", false).commit()
             intent?.removeExtra("from_splash")
         } else if (prefs.getBoolean("pending_incognito_exit", false)) {
@@ -248,7 +256,7 @@ class MainActivity : AppCompatActivity() {
         bookmarkDb = BookmarkDatabaseHelper(this)
         downloadDb = DownloadDatabaseHelper(this)
 
-        selectedEngineIndex = prefs.getInt("default_search_engine", 0)
+        selectedEngineIndex = prefs.getInt("default_search_engine", 0).coerceIn(0, searchEngines.lastIndex)
         trackerCount = prefs.getInt("tracker_count", 0)
 
         webView = findViewById(R.id.webview)
@@ -264,6 +272,14 @@ class MainActivity : AppCompatActivity() {
         btnBookmark = findViewById(R.id.btn_bookmark)
         suggestionsList = findViewById(R.id.suggestions_list)
 
+        dockController = DockController(
+            this,
+            bottomDock!!,
+            findViewById(R.id.pill_container),
+            findViewById(R.id.pill_view),
+            webView
+        )
+
         setupSuggestions()
         updateTrackerUI()
         updateTabCountUI()
@@ -274,14 +290,6 @@ class MainActivity : AppCompatActivity() {
 
         renderSpeedDials()
         checkAndClearCache()
-
-        dockController = DockController(
-            this,
-            bottomDock!!,
-            findViewById(R.id.pill_container),
-            findViewById(R.id.pill_view),
-            webView
-        )
 
         try {
             val dm = getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
@@ -311,11 +319,6 @@ class MainActivity : AppCompatActivity() {
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
         userLeftViaHomeOrRecents = true
-    }
-
-    override fun startActivity(intent: Intent?) {
-        isLaunchingInternalActivity = true
-        super.startActivity(intent)
     }
 
     private fun shouldKillIncognito(): Boolean {
@@ -395,9 +398,6 @@ class MainActivity : AppCompatActivity() {
             e.printStackTrace()
         }
 
-        try {
-            moveTaskToBack(true)
-        } catch (e: Exception) { }
         finishAndRemoveTask()
         overridePendingTransition(0, 0)
     }
@@ -413,12 +413,12 @@ class MainActivity : AppCompatActivity() {
         val activeTab = TabManager.getActiveTab()
 
         if (activeTab?.isIncognito == true) {
-            countTxt.visibility = View.GONE
-            incognitoIcon.visibility = View.VISIBLE
+            countTxt?.visibility = View.GONE
+            incognitoIcon?.visibility = View.VISIBLE
         } else {
-            countTxt.visibility = View.VISIBLE
-            incognitoIcon.visibility = View.GONE
-            countTxt.text = TabManager.tabsList.size.toString()
+            countTxt?.visibility = View.VISIBLE
+            incognitoIcon?.visibility = View.GONE
+            countTxt?.text = TabManager.tabsList.size.toString()
         }
         updateSecureFlag()
     }
@@ -430,15 +430,17 @@ class MainActivity : AppCompatActivity() {
                 val txtSuggestion = view.findViewById<TextView>(R.id.txt_suggestion)
                 val btnArrow = view.findViewById<ImageView>(R.id.btn_arrow_paste)
 
-                val item = getItem(position)
+                val item = getItem(position) ?: ""
                 txtSuggestion.text = item
 
                 view.setOnClickListener {
-                    isUpdatingUrl = true
-                    addressBar?.setText(item)
-                    isUpdatingUrl = false
-                    hideSuggestions()
-                    loadUrlOrSearch(item!!)
+                    if (item.isNotEmpty()) {
+                        isUpdatingUrl = true
+                        addressBar?.setText(item)
+                        isUpdatingUrl = false
+                        hideSuggestions()
+                        loadUrlOrSearch(item)
+                    }
                 }
 
                 btnArrow.setOnClickListener {
@@ -464,7 +466,7 @@ class MainActivity : AppCompatActivity() {
                 isKeyboardVisible = newKeyboardState
                 if (addressBar?.hasFocus() == true && suggestionsList?.visibility == View.VISIBLE) {
                     val limit = if (isKeyboardVisible) 4 else 8
-                    updateSuggestionsView(currentSuggestions, limit)
+                    updateSuggestionsView(currentSuggestions.toList(), limit)
                 }
             }
         }
@@ -493,6 +495,8 @@ class MainActivity : AppCompatActivity() {
         suggestionsAdapter?.notifyDataSetChanged()
         if (suggestions.isNotEmpty()) {
             suggestionsList?.visibility = View.VISIBLE
+        } else {
+            suggestionsList?.visibility = View.GONE
         }
     }
 
@@ -503,21 +507,28 @@ class MainActivity : AppCompatActivity() {
                 try {
                     val encodedQuery = URLEncoder.encode(query, "UTF-8")
                     val url = java.net.URL("https://suggestqueries.google.com/complete/search?client=firefox&q=$encodedQuery")
-                    val connection = url.openConnection() as java.net.HttpURLConnection
-                    connection.doInput = true
+                    val connection = (url.openConnection() as java.net.HttpURLConnection).apply {
+                        connectTimeout = 5000
+                        readTimeout = 5000
+                        doInput = true
+                    }
                     connection.connect()
                     val response = connection.inputStream.bufferedReader().use { it.readText() }
 
                     val jsonArray = org.json.JSONArray(response)
                     val suggestionsArray = jsonArray.getJSONArray(1)
-                    currentSuggestions.clear()
+                    val parsedList = mutableListOf<String>()
                     for (i in 0 until suggestionsArray.length()) {
-                        currentSuggestions.add(suggestionsArray.getString(i))
+                        parsedList.add(suggestionsArray.getString(i))
                     }
 
                     runOnUiThread {
-                        val limit = if (isKeyboardVisible) 4 else 8
-                        updateSuggestionsView(currentSuggestions, limit)
+                        if (addressBar?.hasFocus() == true && !isUpdatingUrl) {
+                            currentSuggestions.clear()
+                            currentSuggestions.addAll(parsedList)
+                            val limit = if (isKeyboardVisible) 4 else 8
+                            updateSuggestionsView(currentSuggestions.toList(), limit)
+                        }
                     }
                 } catch (e: Exception) {
                     runOnUiThread { hideSuggestions() }
@@ -528,7 +539,18 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun hideSuggestions() {
+        suggestionRunnable?.let { suggestionHandler.removeCallbacks(it) }
         suggestionsList?.visibility = View.GONE
+    }
+
+    private fun hideKeyboard() {
+        try {
+            val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+            val token = addressBar?.windowToken ?: window?.decorView?.windowToken
+            if (token != null) {
+                imm.hideSoftInputFromWindow(token, 0)
+            }
+        } catch (e: Exception) { }
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
@@ -556,13 +578,17 @@ class MainActivity : AppCompatActivity() {
 
         val searchDomains = listOf("google.com", "bing.com", "duckduckgo.com", "search.brave.com", "yahoo.com", "ecosia.org")
 
-        val dynamicDials = dbHelper.getMostVisitedSites(50).filter {
-            val lowerUrl = it.url.lowercase()
-            val isHardcoded = lowerUrl.contains("github.com") || lowerUrl.contains("reddit.com") || lowerUrl.contains("youtube.com")
-            val isSearch = searchDomains.any { domain ->
-                lowerUrl.contains(domain) && (lowerUrl.contains("?q=") || lowerUrl.contains("&q=") || lowerUrl.contains("/search") || lowerUrl.contains("?p="))
+        val dynamicDials = try {
+            dbHelper.getMostVisitedSites(50).filter {
+                val lowerUrl = it.url.lowercase()
+                val isHardcoded = lowerUrl.contains("github.com") || lowerUrl.contains("reddit.com") || lowerUrl.contains("youtube.com")
+                val isSearch = searchDomains.any { domain ->
+                    lowerUrl.contains(domain) && (lowerUrl.contains("?q=") || lowerUrl.contains("&q=") || lowerUrl.contains("/search") || lowerUrl.contains("?p="))
+                }
+                !isHardcoded && !isSearch
             }
-            !isHardcoded && !isSearch
+        } catch (e: Exception) {
+            emptyList()
         }
 
         finalDials.addAll(dynamicDials.take(5))
@@ -598,6 +624,7 @@ class MainActivity : AppCompatActivity() {
             itemView.setOnClickListener {
                 addressBar?.clearFocus()
                 hideSuggestions()
+                hideKeyboard()
                 loadUrlOrSearch(dial.url)
             }
 
@@ -641,7 +668,9 @@ class MainActivity : AppCompatActivity() {
         btnCancel.setOnClickListener { dialog.dismiss() }
         btnConfirm.setOnClickListener {
             dialog.dismiss()
-            dbHelper.removeHistoryForUrl(dial.url)
+            try {
+                dbHelper.removeHistoryForUrl(dial.url)
+            } catch (e: Exception) { }
             renderSpeedDials()
             Toast.makeText(this, "Removed from Speed Dial", Toast.LENGTH_SHORT).show()
         }
@@ -678,19 +707,28 @@ class MainActivity : AppCompatActivity() {
         if (!url.startsWith("http://") && !url.startsWith("https://")) return url
         try {
             val uri = Uri.parse(url)
-            val builder = uri.buildUpon()
-            builder.clearQuery()
+            if (uri.isOpaque) return url
+            val paramNames = uri.queryParameterNames
+            if (paramNames.isEmpty()) return url
 
             val trackingParams = setOf(
                 "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content",
                 "fbclid", "gclid", "mc_eid", "yclid", "igshid", "mkt_tok"
             )
 
-            for (param in uri.queryParameterNames) {
+            val hasTrackingParam = paramNames.any { trackingParams.contains(it.lowercase()) }
+            if (!hasTrackingParam) return url
+
+            val builder = uri.buildUpon()
+            builder.clearQuery()
+
+            for (param in paramNames) {
                 if (!trackingParams.contains(param.lowercase())) {
                     val values = uri.getQueryParameters(param)
                     for (value in values) {
-                        builder.appendQueryParameter(param, value)
+                        if (value != null) {
+                            builder.appendQueryParameter(param, value)
+                        }
                     }
                 }
             }
@@ -720,8 +758,10 @@ class MainActivity : AppCompatActivity() {
         }
 
         addressBar?.setOnEditorActionListener { _, actionId, _ ->
-            if (actionId == EditorInfo.IME_ACTION_GO) {
+            if (actionId == EditorInfo.IME_ACTION_GO || actionId == EditorInfo.IME_ACTION_SEARCH || actionId == EditorInfo.IME_ACTION_DONE) {
+                addressBar?.clearFocus()
                 hideSuggestions()
+                hideKeyboard()
                 val input = addressBar?.text.toString().trim()
                 if (input.isNotEmpty()) loadUrlOrSearch(input)
                 true
@@ -743,7 +783,7 @@ class MainActivity : AppCompatActivity() {
                 popup.menu.add(0, i, i, searchEngines[i].first + check)
             }
             popup.setOnMenuItemClickListener { item ->
-                selectedEngineIndex = item.itemId
+                selectedEngineIndex = item.itemId.coerceIn(0, searchEngines.lastIndex)
                 prefs.edit().putInt("default_search_engine", selectedEngineIndex).apply()
                 Toast.makeText(this, "${searchEngines[selectedEngineIndex].first} selected", Toast.LENGTH_SHORT).show()
                 true
@@ -761,14 +801,18 @@ class MainActivity : AppCompatActivity() {
             val currentTitle = webView.title ?: "Untitled"
 
             if (currentUrl != null && currentUrl != "about:blank" && !currentUrl.startsWith("kryptos://")) {
-                if (bookmarkDb.isBookmarked(currentUrl)) {
-                    bookmarkDb.removeBookmark(currentUrl)
-                    btnBookmark?.setImageResource(R.drawable.ic_star_empty)
-                    Toast.makeText(this, "Bookmark Removed", Toast.LENGTH_SHORT).show()
-                } else {
-                    bookmarkDb.addBookmark(currentTitle, currentUrl)
-                    btnBookmark?.setImageResource(R.drawable.ic_star_filled)
-                    Toast.makeText(this, "Bookmark Added", Toast.LENGTH_SHORT).show()
+                try {
+                    if (bookmarkDb.isBookmarked(currentUrl)) {
+                        bookmarkDb.removeBookmark(currentUrl)
+                        btnBookmark?.setImageResource(R.drawable.ic_star_empty)
+                        Toast.makeText(this, "Bookmark Removed", Toast.LENGTH_SHORT).show()
+                    } else {
+                        bookmarkDb.addBookmark(currentTitle, currentUrl)
+                        btnBookmark?.setImageResource(R.drawable.ic_star_filled)
+                        Toast.makeText(this, "Bookmark Added", Toast.LENGTH_SHORT).show()
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
                 }
             } else {
                 Toast.makeText(this, "Cannot bookmark this page", Toast.LENGTH_SHORT).show()
@@ -796,13 +840,6 @@ class MainActivity : AppCompatActivity() {
             popup.menu.add(0, 4, 4, "Settings")
             popup.menu.add(0, 6, 6, "Desktop Site")
             popup.menu.add(0, 8, 8, "Downloads")
-            popup.menu.add(0, 9, 9, "Reader Mode")
-            
-            // Ad-Blocker Whitelist Logic
-            val currentDomain = Uri.parse(webView.url ?: "").host ?: ""
-            val isWhitelisted = prefs.getStringSet("adblock_whitelist", mutableSetOf())?.contains(currentDomain) == true
-            val blockerText = if (isWhitelisted) "Enable Ad-Blocker" else "Disable Ad-Blocker"
-            popup.menu.add(0, 10, 10, blockerText)
 
             popup.setOnMenuItemClickListener { item ->
                 when (item.itemId) {
@@ -832,14 +869,6 @@ class MainActivity : AppCompatActivity() {
                         true
                     }
                     8 -> { startActivity(Intent(this, DownloadsActivity::class.java)); true }
-                    9 -> {
-                        toggleReaderMode()
-                        true
-                    }
-                    10 -> {
-                        toggleAdBlocker()
-                        true
-                    }
                     else -> false
                 }
             }
@@ -899,8 +928,10 @@ class MainActivity : AppCompatActivity() {
             WebStorage.getInstance().deleteAllData()
             CookieManager.getInstance().removeAllCookies(null)
 
-            dbHelper.clearHistory()
-            bookmarkDb.clearBookmarks()
+            try {
+                dbHelper.clearHistory()
+                bookmarkDb.clearBookmarks()
+            } catch (e: Exception) { }
 
             TabManager.resetAllTabs()
             updateTabCountUI()
@@ -916,56 +947,53 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun loadUrlOrSearch(input: String) {
-        try {
-            hideSuggestions()
-            
-            // Safety check for search engine index
-            val safeIndex = if (selectedEngineIndex >= 0 && selectedEngineIndex < searchEngines.size) selectedEngineIndex else 0
-            
-            val url = if (input.contains(".") && !input.contains(" ")) {
-                if (input.startsWith("http://") || input.startsWith("https://")) input else "https://$input"
-            } else {
-                searchEngines[safeIndex].second + Uri.encode(input)
-            }
+        hideSuggestions()
+        hideKeyboard()
+        addressBar?.clearFocus()
 
-            TabManager.updateActiveTabTitle(url, url)
-            homepageContainer?.visibility = View.GONE
-            errorContainer?.visibility = View.GONE
+        val safeIndex = selectedEngineIndex.coerceIn(0, searchEngines.lastIndex)
+        val url = if (input.contains(".") && !input.contains(" ")) {
+            if (input.startsWith("http://") || input.startsWith("https://")) input else "https://$input"
+        } else {
+            searchEngines[safeIndex].second + Uri.encode(input)
+        }
 
-            bottomDock?.setBackgroundColor(Color.TRANSPARENT)
-            bottomDock?.elevation = 0f
+        TabManager.updateActiveTabTitle(url, url)
+        homepageContainer?.visibility = View.GONE
+        errorContainer?.visibility = View.GONE
 
-            // Safety check for dockController
-            if (::dockController.isInitialized) {
-                dockController.setHomePage(false)
-                dockController.hideDockAndShowPill()
-            }
+        bottomDock?.setBackgroundColor(Color.TRANSPARENT)
+        bottomDock?.elevation = 0f
 
-            val defangedUrl = defangUrl(url)
-            isUpdatingUrl = true
-            addressBar?.setText(defangedUrl)
-            isUpdatingUrl = false
-            
-            // Safety check for WebView
-            if (this::webView.isInitialized) {
-                webView.loadUrl(defangedUrl)
-            }
-            
-        } catch (e: Exception) {
-            e.printStackTrace()
-            Toast.makeText(this, "Error opening link: ${e.message}", Toast.LENGTH_SHORT).show()
+        if (this::dockController.isInitialized) {
+            dockController.setHomePage(false)
+            dockController.hideDockAndShowPill()
+        }
+
+        val defangedUrl = defangUrl(url)
+        isUpdatingUrl = true
+        addressBar?.setText(defangedUrl)
+        isUpdatingUrl = false
+
+        if (this::webView.isInitialized) {
+            webView.visibility = View.VISIBLE
+            webView.loadUrl(defangedUrl)
         }
     }
 
     private fun showHomepageUI() {
         hideSuggestions()
-        webView.loadUrl("about:blank")
-        webView.clearHistory()
+        if (this::webView.isInitialized) {
+            webView.loadUrl("about:blank")
+            webView.clearHistory()
+        }
         TabManager.updateActiveTabTitle("Home", "kryptos://home")
         homepageContainer?.visibility = View.VISIBLE
         errorContainer?.visibility = View.GONE
 
-        dockController.setHomePage(true)
+        if (this::dockController.isInitialized) {
+            dockController.setHomePage(true)
+        }
 
         bottomDock?.setBackgroundResource(R.drawable.bg_bottom_dock)
         bottomDock?.elevation = 12f
@@ -996,22 +1024,29 @@ class MainActivity : AppCompatActivity() {
         webView.webChromeClient = KryptosWebChromeClient()
 
         webView.setDownloadListener { url, userAgent, contentDisposition, mimeType, contentLength ->
-            val fileName = URLUtil.guessFileName(url, contentDisposition, mimeType)
-            val request = DownloadManager.Request(Uri.parse(url))
-            request.setMimeType(mimeType)
-            request.addRequestHeader("User-Agent", userAgent)
-            request.addRequestHeader("Cookie", CookieManager.getInstance().getCookie(url))
-            request.setTitle(fileName)
-            request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-            request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fileName)
+            try {
+                val fileName = URLUtil.guessFileName(url, contentDisposition, mimeType)
+                val request = DownloadManager.Request(Uri.parse(url))
+                request.setMimeType(mimeType)
+                request.addRequestHeader("User-Agent", userAgent)
+                val cookie = CookieManager.getInstance().getCookie(url)
+                if (cookie != null) {
+                    request.addRequestHeader("Cookie", cookie)
+                }
+                request.setTitle(fileName)
+                request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fileName)
 
-            val dm = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-            dm.enqueue(request)
+                val dm = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+                dm.enqueue(request)
 
-            val fullPath = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).absolutePath + "/" + fileName
-            downloadDb.addDownload(fileName, url, fullPath)
+                val fullPath = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).absolutePath + "/" + fileName
+                downloadDb.addDownload(fileName, url, fullPath)
 
-            Toast.makeText(this, "Download Started...", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Download Started...", Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                Toast.makeText(this, "Download failed: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
         }
 
         val isDarkForced = prefs.getBoolean("force_dark_mode", false)
@@ -1030,7 +1065,9 @@ class MainActivity : AppCompatActivity() {
 
                 if (sizeInMB > 100) {
                     runOnUiThread {
-                        webView.clearCache(true)
+                        if (this::webView.isInitialized) {
+                            webView.clearCache(true)
+                        }
                         WebStorage.getInstance().deleteAllData()
                         Toast.makeText(this, "Cache auto-cleared to save space!", Toast.LENGTH_SHORT).show()
                     }
@@ -1042,7 +1079,8 @@ class MainActivity : AppCompatActivity() {
     private fun getDirSize(dir: File): Long {
         var size: Long = 0
         try {
-            for (file in dir.listFiles()!!) {
+            val files = dir.listFiles() ?: return 0
+            for (file in files) {
                 size += if (file.isFile) file.length() else getDirSize(file)
             }
         } catch (e: Exception) { }
@@ -1061,76 +1099,6 @@ class MainActivity : AppCompatActivity() {
         webView.reload()
     }
 
-    // ==========================================
-    // READER MODE & AD-BLOCKER LOGIC
-    // ==========================================
-    private fun toggleReaderMode() {
-        isReaderMode = !isReaderMode
-        
-        if (isReaderMode) {
-            val readerJS = """
-                (function() {
-                    var elementsToRemove = document.querySelectorAll('header, footer, nav, aside, .ad, .ads, .advertisement, .sidebar, script, iframe, noscript, [role="banner"], [role="navigation"]');
-                    for (var i = 0; i < elementsToRemove.length; i++) {
-                        elementsToRemove[i].style.display = 'none';
-                    }
-                    
-                    var body = document.body;
-                    body.style.backgroundColor = '#0B0B0D';
-                    body.style.color = '#FFFFFF';
-                    body.style.fontSize = '18px';
-                    body.style.lineHeight = '1.6';
-                    body.style.padding = '20px';
-                    body.style.maxWidth = '800px';
-                    body.style.margin = '0 auto';
-                    
-                    var images = document.querySelectorAll('img');
-                    for (var i = 0; i < images.length; i++) {
-                        images[i].style.maxWidth = '100%';
-                        images[i].style.height = 'auto';
-                        images[i].style.borderRadius = '8px';
-                    }
-                    
-                    var textElements = document.querySelectorAll('p, h1, h2, h3, h4, h5, h6, li, span');
-                    for (var i = 0; i < textElements.length; i++) {
-                        textElements[i].style.color = '#FFFFFF';
-                        textElements[i].style.fontFamily = 'sans-serif';
-                    }
-                })();
-            """.trimIndent()
-            
-            webView.evaluateJavascript(readerJS, null)
-            Toast.makeText(this, "Reader Mode ON", Toast.LENGTH_SHORT).show()
-        } else {
-            webView.reload()
-            Toast.makeText(this, "Reader Mode OFF", Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    private fun toggleAdBlocker() {
-        val currentUrl = webView.url
-        if (currentUrl == null || currentUrl == "about:blank" || currentUrl.startsWith("kryptos://")) {
-            Toast.makeText(this, "Cannot disable blocker on this page", Toast.LENGTH_SHORT).show()
-            return
-        }
-
-        val domain = Uri.parse(currentUrl).host
-        if (domain != null) {
-            val whitelist = prefs.getStringSet("adblock_whitelist", mutableSetOf())?.toMutableSet() ?: mutableSetOf()
-            
-            if (whitelist.contains(domain)) {
-                whitelist.remove(domain)
-                Toast.makeText(this, "Ad-Blocker Enabled for $domain", Toast.LENGTH_SHORT).show()
-            } else {
-                whitelist.add(domain)
-                Toast.makeText(this, "Ad-Blocker Disabled for $domain", Toast.LENGTH_SHORT).show()
-            }
-            
-            prefs.edit().putStringSet("adblock_whitelist", whitelist).apply()
-            webView.reload() 
-        }
-    }
-
     private fun toggleImmersiveMode() {
         isImmersiveMode = !isImmersiveMode
         if (isImmersiveMode) {
@@ -1142,8 +1110,8 @@ class MainActivity : AppCompatActivity() {
 
     private fun hideUIForFullscreen() {
         isImmersiveMode = true
-        findViewById<View>(R.id.top_bar).visibility = View.GONE
-        findViewById<View>(R.id.progress_bar).visibility = View.GONE
+        findViewById<View>(R.id.top_bar)?.visibility = View.GONE
+        findViewById<View>(R.id.progress_bar)?.visibility = View.GONE
         bottomDock?.visibility = View.GONE
 
         window.decorView.systemUiVisibility = (View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
@@ -1153,21 +1121,27 @@ class MainActivity : AppCompatActivity() {
                 or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
                 or View.SYSTEM_UI_FLAG_FULLSCREEN)
 
-        dockController.setHomePage(false)
-        dockController.hideDockAndShowPill()
+        if (this::dockController.isInitialized) {
+            dockController.setHomePage(false)
+            dockController.hideDockAndShowPill()
+        }
     }
 
     private fun showUIBackFromFullscreen() {
         isImmersiveMode = false
-        findViewById<View>(R.id.top_bar).visibility = View.VISIBLE
+        findViewById<View>(R.id.top_bar)?.visibility = View.VISIBLE
         window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_VISIBLE
 
         if (homepageContainer?.visibility == View.VISIBLE) {
-            dockController.setHomePage(true)
+            if (this::dockController.isInitialized) {
+                dockController.setHomePage(true)
+            }
             bottomDock?.visibility = View.VISIBLE
         } else {
-            dockController.setHomePage(false)
-            dockController.hideDockAndShowPill()
+            if (this::dockController.isInitialized) {
+                dockController.setHomePage(false)
+                dockController.hideDockAndShowPill()
+            }
         }
     }
 
@@ -1313,18 +1287,18 @@ class MainActivity : AppCompatActivity() {
         runOnUiThread {
             try {
                 window.setBackgroundDrawable(ColorDrawable(Color.BLACK))
-                findViewById<View>(android.R.id.content)?.visibility = View.GONE
+                findViewById<View>(android.R.id.content)?.visibility = View.INVISIBLE
 
+                // Wipe WebView contents & storage WITHOUT detaching/destroying the WebView here
+                // (destroying WebView happens in onDestroy() so singleTask reuse never crashes)
                 if (this::webView.isInitialized) {
-                    webView.visibility = View.GONE
+                    webView.visibility = View.INVISIBLE
                     webView.stopLoading()
                     webView.loadUrl("about:blank")
                     webView.clearHistory()
                     webView.clearFormData()
                     webView.clearCache(true)
                     webView.clearSslPreferences()
-                    (webView.parent as? ViewGroup)?.removeView(webView)
-                    webView.destroy()
                 }
 
                 val cookieManager = CookieManager.getInstance()
@@ -1367,7 +1341,6 @@ class MainActivity : AppCompatActivity() {
         }
 
         userLeftViaHomeOrRecents = false
-        isLaunchingInternalActivity = false
         screenOffCheckHandler.removeCallbacksAndMessages(null)
 
         if (prefs.getBoolean("backup_normal_data", false)) {
@@ -1411,7 +1384,7 @@ class MainActivity : AppCompatActivity() {
         if (activeTab != null) {
             if (activeTab.url == "kryptos://home") {
                 showHomepageUI()
-            } else if (webView.url != activeTab.url) {
+            } else if (this::webView.isInitialized && webView.url != activeTab.url) {
                 loadUrlOrSearch(activeTab.url)
             }
         }
@@ -1434,19 +1407,8 @@ class MainActivity : AppCompatActivity() {
 
     override fun onStop() {
         super.onStop()
-
-        if (shouldKillIncognito() && !isChangingConfigurations) {
-            if (!userLeftViaHomeOrRecents && !isLaunchingInternalActivity) {
-                executeIncognitoKillNow()
-                return
-            }
-
-            if (isScreenOffOrLocked()) {
-                executeIncognitoKillNow()
-            } else {
-                scheduleScreenOffPolls()
-            }
-        }
+        // Activity-level stop handling is coordinated via startedActivityCount in registerActivityTracker
+        // so opening TabsActivity/SettingsActivity never triggers a false kill.
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
@@ -1484,26 +1446,24 @@ class MainActivity : AppCompatActivity() {
     inner class KryptosWebViewClient : WebViewClient() {
 
         override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
-            val url = request?.url.toString().lowercase()
-            
-            val currentDomain = Uri.parse(webView.url ?: "").host ?: ""
-            val whitelist = prefs.getStringSet("adblock_whitelist", mutableSetOf()) ?: mutableSetOf()
-            
-            if (!whitelist.contains(currentDomain)) {
-                for (domain in TrackerList.blockedDomains) {
-                    if (url.contains(domain)) {
-                        trackerCount++
-                        prefs.edit().putInt("tracker_count", trackerCount).apply()
-                        runOnUiThread { updateTrackerUI() }
-                        return WebResourceResponse("text/plain", "utf-8", ByteArrayInputStream("".toByteArray()))
-                    }
+            val url = request?.url?.toString()?.lowercase() ?: return super.shouldInterceptRequest(view, request)
+            for (domain in TrackerList.blockedDomains) {
+                if (url.contains(domain)) {
+                    trackerCount++
+                    prefs.edit().putInt("tracker_count", trackerCount).apply()
+                    runOnUiThread { updateTrackerUI() }
+                    return WebResourceResponse("text/plain", "utf-8", ByteArrayInputStream("".toByteArray()))
                 }
             }
             return super.shouldInterceptRequest(view, request)
         }
 
         override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
-            val url = request?.url.toString()
+            val url = request?.url?.toString() ?: return false
+
+            if (!url.startsWith("http://") && !url.startsWith("https://") && !url.startsWith("about:") && !url.startsWith("kryptos://")) {
+                return true
+            }
 
             val downloadExtensions = listOf(
                 ".apk", ".aab", ".xapk", ".zip", ".rar", ".7z", ".tar", ".gz", ".bz2", ".xz",
@@ -1522,8 +1482,11 @@ class MainActivity : AppCompatActivity() {
                     val fileName = URLUtil.guessFileName(url, null, null)
                     val dmRequest = DownloadManager.Request(Uri.parse(url))
                     dmRequest.setMimeType("application/vnd.android.package-archive")
-                    dmRequest.addRequestHeader("User-Agent", request?.requestHeaders?.get("User-Agent") ?: webView.settings.userAgentString)
-                    dmRequest.addRequestHeader("Cookie", CookieManager.getInstance().getCookie(url))
+                    dmRequest.addRequestHeader("User-Agent", request.requestHeaders?.get("User-Agent") ?: webView.settings.userAgentString)
+                    val cookie = CookieManager.getInstance().getCookie(url)
+                    if (cookie != null) {
+                        dmRequest.addRequestHeader("Cookie", cookie)
+                    }
                     dmRequest.setTitle(fileName)
                     dmRequest.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
                     dmRequest.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fileName)
@@ -1570,24 +1533,34 @@ class MainActivity : AppCompatActivity() {
                     val lowerUrl = url.lowercase()
                     val isSearch = lowerUrl.contains("?q=") || lowerUrl.contains("&q=") || lowerUrl.contains("/search?") || lowerUrl.contains("?p=")
                     if (!isSearch) {
-                        dbHelper.addHistory(title, url)
+                        try {
+                            dbHelper.addHistory(title, url)
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
                     }
                 }
 
-                if (bookmarkDb.isBookmarked(url)) {
-                    btnBookmark?.setImageResource(R.drawable.ic_star_filled)
-                } else {
-                    btnBookmark?.setImageResource(R.drawable.ic_star_empty)
+                try {
+                    if (bookmarkDb.isBookmarked(url)) {
+                        btnBookmark?.setImageResource(R.drawable.ic_star_filled)
+                    } else {
+                        btnBookmark?.setImageResource(R.drawable.ic_star_empty)
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
                 }
 
-                dockController.updatePillColor()
+                if (this@MainActivity::dockController.isInitialized) {
+                    dockController.updatePillColor()
+                }
             }
         }
 
         override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
             super.onReceivedError(view, request, error)
             if (request?.isForMainFrame == true) {
-                lastFailedUrl = request.url.toString()
+                lastFailedUrl = request.url?.toString()
                 errorContainer?.visibility = View.VISIBLE
                 homepageContainer?.visibility = View.GONE
             }
@@ -1597,8 +1570,12 @@ class MainActivity : AppCompatActivity() {
     inner class KryptosWebChromeClient : WebChromeClient() {
         override fun onProgressChanged(view: WebView?, newProgress: Int) {
             super.onProgressChanged(view, newProgress)
-            if (newProgress < 100) { progressBar?.visibility = View.VISIBLE; progressBar?.progress = newProgress }
-            else { progressBar?.visibility = View.GONE }
+            if (newProgress < 100) {
+                progressBar?.visibility = View.VISIBLE
+                progressBar?.progress = newProgress
+            } else {
+                progressBar?.visibility = View.GONE
+            }
         }
 
         override fun onShowCustomView(view: View?, callback: CustomViewCallback?) {
