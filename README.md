@@ -3,30 +3,36 @@
   <h1>Kryptos Browser</h1>
   <p><b>Next-Gen Privacy. Dark Sci-Fi UI. Unmatched Speed.</b></p>
   
-  [![Version](https://img.shields.io/badge/Version-4.0.0-00E676?style=for-the-badge)]()
+  [![Version](https://img.shields.io/badge/Version-5.0.0-00E676?style=for-the-badge)]()
   [![Android](https://img.shields.io/badge/Android-8.0%2B-141418?style=for-the-badge&logo=android)](https://developer.android.com)
   [![Kotlin](https://img.shields.io/badge/Kotlin-100%25-00E676?style=for-the-badge&logo=kotlin)](https://kotlinlang.org)
 
-<a href="https://www.buymeacoffee.com/Emberlog"><img src="https://img.buymeacoffee.com/button-api/?text=Buy me a coffee&emoji=☕&slug=Emberlog&button_colour=FFDD00&font_colour=000000&font_family=Cookie&outline_colour=000000&coffee_colour=ffffff" /></a>
-  
+  <br><br>
+
+  <!-- Buy Me a Coffee Button -->
+  <a href="https://www.buymeacoffee.com/Emberlog"><img src="https://img.buymeacoffee.com/button-api/?text=Buy me a coffee&emoji=☕&slug=Emberlog&button_colour=FFDD00&font_colour=000000&font_family=Cookie&outline_colour=000000&coffee_colour=ffffff" /></a>
+  <br>
+  <i>If you love Kryptos, consider supporting the development!</i>
+
 </div>
 
 <br>
 
-**Kryptos** is a high-performance, privacy-focused Android browser designed with a deep matte black and neon green dark sci-fi theme. Built entirely from a mobile phone using GitHub Actions.
+**Kryptos** is a high-performance, privacy-focused Android browser designed with a deep matte black and neon green dark sci-fi theme. Built entirely from a mobile phone using GitHub Actions, it features advanced ad-blocking, true incognito mode, and a seamless user experience.
 
 ---
 
-## 🚀 What's New in V4
+## 🚀 What's New in V5 (The Ultimate Privacy Update)
 
-V4 is a massive update that takes privacy and UI to the next level:
+V5 is a massive milestone that transforms Kryptos into a fully-fledged, crash-free, and highly secure browsing environment.
 
-*   🕵️ **Incognito Mode (Fully Functional):** Normal and incognito tabs are now completely separated. Incognito mode features a custom hat/glasses icon and all incognito tabs are auto-killed when the app is closed.
-*   🎭 **Auto-Hiding Dock & Pill Bar:** Implemented an iOS-style auto-hiding dock to prevent UI overlap on websites like YouTube. The dock hides when loading a website, replaced by a swipable pill bar.
-*   🛡️ **Advanced Ad-Blocker (500+ Trackers):** Integrated a massive hosts list that blocks over 500 known trackers, ad networks, and analytics domains.
-*   ✂️ **Link Defanger:** Automatically strips tracking parameters like `utm_*`, `fbclid`, etc., from URLs before loading them.
-*   🗑️ **Smart UI Updates:** Added empty states (No history yet, No bookmarks yet) and a 'Clear All' trash icon in Bookmarks.
-*   ❌ **Removed:** Panic Shake and Ghost Vault features have been completely removed to keep the app lightweight and clean.
+*   🛡️ **Incognito Auto-Kill (Android 12-16 Safe):** The ultimate privacy feature. If any Incognito tab is open and you press the power button, the app instantly clears all data and completely removes itself from the Recent Apps menu. No traces left behind.
+*   📖 **Reader Mode:** A custom-built JavaScript injection that strips away ads, sidebars, and headers, leaving you with a clean, dark-themed article (perfect for Wikipedia and news sites).
+*   📥 **In-Built Download Manager:** Downloads are now handled internally. View, open, and manage your downloaded files directly from the 3-dots menu.
+*   📤 **Export/Import Bookmarks:** Backup your bookmarks into a JSON file and restore them anytime, anywhere.
+*   🎭 **Ad-Blocker Whitelist:** Bypass the 500+ tracker blocker for specific websites that break due to strict ad-blocking.
+*   🔄 **Seamless Auto-Updater:** Fixed the Keystore conflict. Updates now install directly over the old app without deleting your bookmarks, history, or logins.
+*   🎨 **UI/UX Fixes:** Added a toggle for Force Dark Mode, fixed the Light Mode icons, and introduced the Auto-Hiding Dock with a swipeable pill bar.
 
 ---
 
@@ -34,11 +40,13 @@ V4 is a massive update that takes privacy and UI to the next level:
 
 *   **Dark Sci-Fi UI:** Deep matte black (#0B0B0D) and Neon Green (#00E676) accents.
 *   **Floating Dock:** Custom glowing fire button, tabs counter, and back/home controls.
-*   **Speed Dial:** Automatically fetches your top 5 most visited sites from SQLite database with grayscale favicons.
-*   **Auto Cache Cleaner:** Background thread automatically clears cache if it exceeds 100MB.
-*   **Custom WebView:** Spoofs a Pixel 8 user agent to fix CAPTCHA issues and load desktop-grade mobile sites.
-*   **Incognito Auto-Kill:** Option to kill the app and clear data instantly when the screen turns off.
-*   **Built-in Updater:** Check for updates directly from GitHub releases within the Settings menu.
+*   **Speed Dial:** Automatically fetches your top 5 most visited sites. Long-press any site to remove it.
+*   **Search Suggestions:** Real-time search suggestions (4 when the keyboard is open, 8 when closed) with a quick-paste arrow.
+*   **Voice Search:** Custom dark-themed voice search dialog with live transcription.
+*   **Desktop Site Toggle:** Quickly switch any website to Desktop (PC) mode.
+*   **Custom WebView:** Spoofs a Pixel 8 user agent to fix CAPTCHA issues.
+*   **Link Defanger:** Automatically strips tracking parameters (like `utm_source` and `fbclid`) from URLs before loading them.
+*   **Auto Cache Cleaner:** Background thread automatically clears the cache if it exceeds 100MB.
 
 ---
 
@@ -56,12 +64,11 @@ V4 is a massive update that takes privacy and UI to the next level:
 
 ## 📂 Architecture Overview
 
-*   `MainActivity.kt`: Core WebView, Toolbar, Auto-Hiding Dock, Tracker Interception.
+*   `MainActivity.kt`: Core WebView, Toolbar, Auto-Hiding Dock, Tracker Interception, Lifecycle management.
 *   `DockController.kt`: Handles all animations for the floating dock and pill bar.
 *   `TrackerList.kt`: 500+ blacklisted domains for the ad-blocker.
 *   `TabManager.kt`: Manages normal and incognito tabs in memory.
-*   `HistoryDatabaseHelper.kt` & `BookmarkDatabaseHelper.kt`: Manages local SQLite databases.
-*   `LinkDefanger` (Logic in MainActivity): Cleans URLs before loading.
+*   `SettingsActivity.kt`: Preferences, In-place Auto-Updater, and security toggles.
 
 ---
 
