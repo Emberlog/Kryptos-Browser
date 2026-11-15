@@ -916,28 +916,45 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun loadUrlOrSearch(input: String) {
-        hideSuggestions()
-        val url = if (input.contains(".") && !input.contains(" ")) {
-            if (input.startsWith("http://") || input.startsWith("https://")) input else "https://$input"
-        } else {
-            searchEngines[selectedEngineIndex].second + Uri.encode(input)
+        try {
+            hideSuggestions()
+            
+            // Safety check for search engine index
+            val safeIndex = if (selectedEngineIndex >= 0 && selectedEngineIndex < searchEngines.size) selectedEngineIndex else 0
+            
+            val url = if (input.contains(".") && !input.contains(" ")) {
+                if (input.startsWith("http://") || input.startsWith("https://")) input else "https://$input"
+            } else {
+                searchEngines[safeIndex].second + Uri.encode(input)
+            }
+
+            TabManager.updateActiveTabTitle(url, url)
+            homepageContainer?.visibility = View.GONE
+            errorContainer?.visibility = View.GONE
+
+            bottomDock?.setBackgroundColor(Color.TRANSPARENT)
+            bottomDock?.elevation = 0f
+
+            // Safety check for dockController
+            if (::dockController.isInitialized) {
+                dockController.setHomePage(false)
+                dockController.hideDockAndShowPill()
+            }
+
+            val defangedUrl = defangUrl(url)
+            isUpdatingUrl = true
+            addressBar?.setText(defangedUrl)
+            isUpdatingUrl = false
+            
+            // Safety check for WebView
+            if (this::webView.isInitialized) {
+                webView.loadUrl(defangedUrl)
+            }
+            
+        } catch (e: Exception) {
+            e.printStackTrace()
+            Toast.makeText(this, "Error opening link: ${e.message}", Toast.LENGTH_SHORT).show()
         }
-
-        TabManager.updateActiveTabTitle(url, url)
-        homepageContainer?.visibility = View.GONE
-        errorContainer?.visibility = View.GONE
-
-        bottomDock?.setBackgroundColor(Color.TRANSPARENT)
-        bottomDock?.elevation = 0f
-
-        dockController.setHomePage(false)
-        dockController.hideDockAndShowPill()
-
-        val defangedUrl = defangUrl(url)
-        isUpdatingUrl = true
-        addressBar?.setText(defangedUrl)
-        isUpdatingUrl = false
-        webView.loadUrl(defangedUrl)
     }
 
     private fun showHomepageUI() {
