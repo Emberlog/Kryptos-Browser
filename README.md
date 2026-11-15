@@ -6,11 +6,12 @@
   [![Version](https://img.shields.io/badge/Version-4.0.0-00E676?style=for-the-badge)]()
   [![Android](https://img.shields.io/badge/Android-8.0%2B-141418?style=for-the-badge&logo=android)](https://developer.android.com)
   [![Kotlin](https://img.shields.io/badge/Kotlin-100%25-00E676?style=for-the-badge&logo=kotlin)](https://kotlinlang.org)
+
+<a href="https://www.buymeacoffee.com/Emberlog"><img src="https://img.buymeacoffee.com/button-api/?text=Buy me a coffee&emoji=☕&slug=Emberlog&button_colour=FFDD00&font_colour=000000&font_family=Cookie&outline_colour=000000&coffee_colour=ffffff" /></a>
+  
 </div>
 
 <br>
-
-<a href="https://www.buymeacoffee.com/Emberlog"><img src="https://img.buymeacoffee.com/button-api/?text=Buy me a coffee&emoji=☕&slug=Emberlog&button_colour=FFDD00&font_colour=000000&font_family=Cookie&outline_colour=000000&coffee_colour=ffffff" /></a>
 
 **Kryptos** is a high-performance, privacy-focused Android browser designed with a deep matte black and neon green dark sci-fi theme. Built entirely from a mobile phone using GitHub Actions.
 
