@@ -1559,15 +1559,13 @@ class MainActivity : AppCompatActivity() {
                 } catch (e: Exception) {
                     Toast.makeText(this@MainActivity, "No app found to open this link", Toast.LENGTH_SHORT).show()
                 }
-                return true // WebView में लोड मत करो, बाहर असली ऐप में खोल दो
+                return true
             }
 
             // 2. Prevent non-web protocols from loading in WebView
             if (!url.startsWith("http://") && !url.startsWith("https://") && !url.startsWith("about:") && !url.startsWith("kryptos://")) {
                 return true
             }
-
-            // 3. (यहाँ से तेरा पुराना डाउनलोड एक्सटेंशन वाला कोड शुरू होगा)
             val downloadExtensions = listOf(
                 ".apk", ".aab", ".xapk", ".zip", ".rar", ".7z", ".tar", ".gz", ".bz2", ".xz",
                 ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".txt", ".csv", ".rtf", ".odt",
