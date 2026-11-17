@@ -1551,21 +1551,23 @@ class MainActivity : AppCompatActivity() {
         override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
             val url = request?.url?.toString() ?: return false
 
-            // 1. Handle External App Links (Phone, Email, SMS)
-            if (url.startsWith("tel:") || url.startsWith("mailto:") || url.startsWith("sms:") || url.startsWith("geo:") || url.startsWith("intent:")) {
+            // 1. Handle External App Links (Phone, Email, SMS, Maps, WhatsApp)
+            if (url.startsWith("tel:") || url.startsWith("mailto:") || url.startsWith("sms:") || url.startsWith("geo:") || url.startsWith("intent:") || url.startsWith("whatsapp:")) {
                 try {
                     val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
                     startActivity(intent)
                 } catch (e: Exception) {
                     Toast.makeText(this@MainActivity, "No app found to open this link", Toast.LENGTH_SHORT).show()
                 }
-                return true // WebView me load mat karo, bahar khol do
+                return true // WebView में लोड मत करो, बाहर असली ऐप में खोल दो
             }
 
+            // 2. Prevent non-web protocols from loading in WebView
             if (!url.startsWith("http://") && !url.startsWith("https://") && !url.startsWith("about:") && !url.startsWith("kryptos://")) {
                 return true
             }
 
+            // 3. (यहाँ से तेरा पुराना डाउनलोड एक्सटेंशन वाला कोड शुरू होगा)
             val downloadExtensions = listOf(
                 ".apk", ".aab", ".xapk", ".zip", ".rar", ".7z", ".tar", ".gz", ".bz2", ".xz",
                 ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".txt", ".csv", ".rtf", ".odt",
@@ -1605,6 +1607,7 @@ class MainActivity : AppCompatActivity() {
                 }
             }
 
+            // 4. Link Defanger
             val defangedUrl = defangUrl(url)
             if (url != defangedUrl) {
                 view?.loadUrl(defangedUrl)
