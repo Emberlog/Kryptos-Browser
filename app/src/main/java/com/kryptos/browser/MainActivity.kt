@@ -314,6 +314,50 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun handleIncomingIntent(intent: Intent?) {
+        if (intent == null) return
+
+        if (intent.action == Intent.ACTION_VIEW) {
+            val url = intent.data?.toString()
+            if (!url.isNullOrEmpty()) {
+                // External link aane par direct load karein
+                if (this::webView.isInitialized) {
+                    isUpdatingUrl = true
+                    addressBar?.setText(url)
+                    isUpdatingUrl = false
+                    homepageContainer?.visibility = View.GONE
+                    errorContainer?.visibility = View.GONE
+                    
+                    if (this::dockController.isInitialized) {
+                        dockController.setHomePage(false)
+                        dockController.hideDockAndShowPill()
+                    }
+                    
+                    // Tab title update karein
+                    TabManager.updateActiveTabTitle(url, url)
+                    
+                    webView.visibility = View.VISIBLE
+                    webView.loadUrl(url)
+                }
+            }
+        } else if (intent.action == "ACTION_OPEN_SEARCH") {
+            addressBar?.requestFocus()
+            addressBar?.setText("")
+            val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+            imm.showSoftInput(addressBar, InputMethodManager.SHOW_IMPLICIT)
+        } else if (intent.action == "ACTION_OPEN_INCOGNITO") {
+            if (TabManager.tabsList.none { it.isIncognito }) {
+                backupNormalCookies()
+                clearAllCookies()
+            }
+            val newTab = TabManager.addNewTab("kryptos://home", "Incognito Tab", true)
+            TabManager.setActiveTab(newTab.id)
+            showHomepageUI()
+            updateTabCountUI()
+            Toast.makeText(this, "Incognito Tab Opened from Widget", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
         userLeftViaHomeOrRecents = true
@@ -1504,22 +1548,19 @@ class MainActivity : AppCompatActivity() {
     }
 
     inner class KryptosWebViewClient : WebViewClient() {
-
-        override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
-            val url = request?.url?.toString()?.lowercase() ?: return super.shouldInterceptRequest(view, request)
-            for (domain in TrackerList.blockedDomains) {
-                if (url.contains(domain)) {
-                    trackerCount++
-                    prefs.edit().putInt("tracker_count", trackerCount).apply()
-                    runOnUiThread { updateTrackerUI() }
-                    return WebResourceResponse("text/plain", "utf-8", ByteArrayInputStream("".toByteArray()))
-                }
-            }
-            return super.shouldInterceptRequest(view, request)
-        }
-
         override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
             val url = request?.url?.toString() ?: return false
+
+            // 1. Handle External App Links (Phone, Email, SMS)
+            if (url.startsWith("tel:") || url.startsWith("mailto:") || url.startsWith("sms:") || url.startsWith("geo:") || url.startsWith("intent:")) {
+                try {
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                    startActivity(intent)
+                } catch (e: Exception) {
+                    Toast.makeText(this@MainActivity, "No app found to open this link", Toast.LENGTH_SHORT).show()
+                }
+                return true // WebView me load mat karo, bahar khol do
+            }
 
             if (!url.startsWith("http://") && !url.startsWith("https://") && !url.startsWith("about:") && !url.startsWith("kryptos://")) {
                 return true
