@@ -143,6 +143,18 @@ class SettingsActivity : AppCompatActivity() {
         txtCheckUpdates.setOnClickListener {
             showCheckingDialog()
         }
+                // Buy Me a Coffee Option
+        val txtBuyMeCoffee = findViewById<TextView>(R.id.txt_buy_me_coffee)
+        txtBuyMeCoffee.setOnClickListener {
+            // Intent to open the link inside our own MainActivity
+            val intent = Intent(this, MainActivity::class.java).apply {
+                action = Intent.ACTION_VIEW
+                data = Uri.parse("https://www.buymeacoffee.com/Emberlog")
+                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            }
+            startActivity(intent)
+            finish() // Close Settings so the user lands directly on the website
+        }
     }
 
     override fun onResume() {
