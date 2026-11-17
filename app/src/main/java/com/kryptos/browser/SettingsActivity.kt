@@ -73,8 +73,7 @@ class SettingsActivity : AppCompatActivity() {
         switchFullscreen.setOnCheckedChangeListener { _, isChecked ->
             prefs.edit().putBoolean("fullscreen_mode", isChecked).apply()
         }
-
-        // Clear Data Option
+                // Clear Data Option
         txtClearData.setOnClickListener {
             val dialog = Dialog(this)
             dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
@@ -93,11 +92,24 @@ class SettingsActivity : AppCompatActivity() {
             btnCancel.setOnClickListener { dialog.dismiss() }
             btnConfirm.setOnClickListener {
                 dialog.dismiss()
+                
+                // 1. Clear WebView Data (Cookies & Cache)
                 WebStorage.getInstance().deleteAllData()
                 val cookieManager = CookieManager.getInstance()
                 cookieManager.removeAllCookies(null)
                 cookieManager.flush()
-                showCustomToast("Browsing data cleared successfully!")
+                
+                // 2. Clear Local Databases (History & Bookmarks) - NEW FIX
+                val historyDb = HistoryDatabaseHelper(this)
+                historyDb.clearHistory()
+                
+                val bookmarkDb = BookmarkDatabaseHelper(this)
+                bookmarkDb.clearBookmarks()
+                
+                // 3. Clear Tabs
+                TabManager.resetAllTabs()
+                
+                showCustomToast("All browsing data cleared successfully!")
             }
             dialog.show()
         }
