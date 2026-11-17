@@ -21,8 +21,8 @@ android {
         applicationId = "com.kryptos.browser"
         minSdk = 26
         targetSdk = 34
-        versionCode = 8       // Har naye release pe isko +1 badhana
-        versionName = "5.0.1" // Har naye release pe isko update karna
+        versionCode = 9
+        versionName = "5.0.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
