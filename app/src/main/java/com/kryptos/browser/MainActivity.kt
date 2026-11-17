@@ -1668,10 +1668,16 @@ class MainActivity : AppCompatActivity() {
             progressBar?.visibility = View.GONE
 
             if (url != "about:blank" && url != null) {
+                val activeTab = TabManager.getActiveTab()
+                
+                // NEW FIX: Agar active tab home hai, toh late load hone wali site (jaise YouTube) ko ignore karo
+                if (activeTab?.url == "kryptos://home") {
+                    return
+                }
+
                 val title = view?.title ?: "New Tab"
                 TabManager.updateActiveTabTitle(title, url)
 
-                val activeTab = TabManager.getActiveTab()
                 if (activeTab?.isIncognito != true) {
                     val lowerUrl = url.lowercase()
                     val isSearch = lowerUrl.contains("?q=") || lowerUrl.contains("&q=") || lowerUrl.contains("/search?") || lowerUrl.contains("?p=")
