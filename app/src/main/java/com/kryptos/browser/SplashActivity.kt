@@ -41,9 +41,6 @@ class SplashActivity : AppCompatActivity() {
 
                 WebStorage.getInstance().deleteAllData()
 
-                val dbHelper = HistoryDatabaseHelper(this)
-                dbHelper.clearHistory()
-
                 TabManager.resetAllTabs()
 
                 tempWebView.destroy()
