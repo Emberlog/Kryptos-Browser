@@ -2,11 +2,13 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!-- Permissions for Browser, Auto-Updater, Voice Search, Downloads, and Widgets -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
     
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
@@ -31,13 +33,26 @@
         android:usesCleartextTraffic="true"
         tools:targetApi="34">
 
+        <!-- Splash Screen (Launcher Activity) -->
+        <activity
+            android:name=".SplashActivity"
+            android:exported="true"
+            android:noHistory="true"
+            android:theme="@style/Theme.KryptosBrowser">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- Main Browser Activity (Default Browser Intent Filter Added) -->
         <activity
             android:name=".MainActivity"
-            android:exported="true" 
+            android:exported="true"
             android:launchMode="singleTask"
             android:configChanges="orientation|screenSize|keyboardHidden">
 
-            <!-- Default Browser ke liye ye Intent Filter zaroori hai -->
+            <!-- Default Browser handling -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -48,19 +63,14 @@
             </intent-filter>
         </activity>
 
-        <activity
-            android:name=".MainActivity"
-            android:exported="false"
-            android:launchMode="singleTask"
-            android:stateNotNeeded="true"
-            android:configChanges="orientation|screenSize|keyboardHidden" />
-
+        <!-- Other Activities -->
         <activity android:name=".SettingsActivity" android:exported="false" />
         <activity android:name=".TabsActivity" android:exported="false" />
         <activity android:name=".HistoryActivity" android:exported="false" />
         <activity android:name=".BookmarksActivity" android:exported="false" />
         <activity android:name=".DownloadsActivity" android:exported="false" />
 
+        <!-- FileProvider for Auto-Updater -->
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
@@ -71,5 +81,26 @@
                 android:resource="@xml/file_paths" />
         </provider>
 
+        <!-- Search Widget Receiver -->
+        <receiver android:name=".SearchWidgetProvider" android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/search_widget_info" />
+        </receiver>
+
+        <!-- Incognito Widget Receiver -->
+        <receiver android:name=".IncognitoWidgetProvider" android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/incognito_widget_info" />
+        </receiver>
+
     </application>
+
 </manifest>
