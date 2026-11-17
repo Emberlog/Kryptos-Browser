@@ -11,6 +11,9 @@ import android.os.Bundle
 import android.provider.Settings
 import android.view.View
 import android.view.Window
+import android.app.role.RoleManager
+import android.provider.Settings
+import androidx.activity.result.contract.ActivityResultContracts
 import android.webkit.CookieManager
 import android.webkit.WebStorage
 import android.widget.Switch
@@ -44,6 +47,29 @@ class SettingsActivity : AppCompatActivity() {
 
         val txtClearData = findViewById<TextView>(R.id.txt_clear_data_settings)
         val txtCheckUpdates = findViewById<TextView>(R.id.txt_check_updates)
+        // Set as Default Browser
+        val txtSetDefault = findViewById<TextView>(R.id.txt_set_default_browser)
+        txtSetDefault.setOnClickListener {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                val roleManager = getSystemService(Context.ROLE_SERVICE) as RoleManager
+                if (roleManager.isRoleAvailable(RoleManager.ROLE_BROWSER)) {
+                    if (roleManager.isRoleHeld(RoleManager.ROLE_BROWSER)) {
+                        Toast.makeText(this, "Kryptos is already your default browser!", Toast.LENGTH_SHORT).show()
+                    } else {
+                        // Android 10+ (API 29+) ke liye system popup request
+                        val intent = roleManager.createRequestRoleIntent(RoleManager.ROLE_BROWSER)
+                        startActivityForResult(intent, 1234)
+                    }
+                } else {
+                    Toast.makeText(this, "Default browser setting not available on this device.", Toast.LENGTH_SHORT).show()
+                }
+            } else {
+                // Android 9 aur usse purane ke liye settings page open karein
+                Toast.makeText(this, "Please set Kryptos as default browser from Settings.", Toast.LENGTH_LONG).show()
+                val intent = Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS)
+                startActivity(intent)
+            }
+        }
 
         // Load Saved States
         switchSuggestions.isChecked = prefs.getBoolean("search_suggestions", true)
