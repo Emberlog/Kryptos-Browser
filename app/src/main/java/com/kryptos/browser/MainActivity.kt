@@ -90,6 +90,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var dbHelper: HistoryDatabaseHelper
     private lateinit var bookmarkDb: BookmarkDatabaseHelper
     private lateinit var downloadDb: DownloadDatabaseHelper
+    private lateinit var smartDbHelper: SmartSpeedDialDatabaseHelper
     private lateinit var dockController: DockController
 
     private var speechRecognizer: SpeechRecognizer? = null
@@ -100,11 +101,14 @@ class MainActivity : AppCompatActivity() {
     private var customViewCallback: WebChromeClient.CustomViewCallback? = null
     private var isImmersiveMode = false
 
-    // Incognito Auto-Kill State & Detection
     private val isWipingAndKilling = AtomicBoolean(false)
     private var userLeftViaHomeOrRecents = false
     private val screenOffCheckHandler = Handler(Looper.getMainLooper())
     private val pollDelays = longArrayOf(100L, 250L, 500L, 850L, 1300L)
+    
+    private var currentSessionDomain: String? = null
+    private var sessionStartTime: Long = 0L
+    private var isBrowserPaused = false
 
     private val displayListener = object : DisplayManager.DisplayListener {
         override fun onDisplayAdded(displayId: Int) {}
@@ -253,6 +257,7 @@ class MainActivity : AppCompatActivity() {
         dbHelper = HistoryDatabaseHelper(this)
         bookmarkDb = BookmarkDatabaseHelper(this)
         downloadDb = DownloadDatabaseHelper(this)
+        smartDbHelper = SmartSpeedDialDatabaseHelper(this)
 
         selectedEngineIndex = prefs.getInt("default_search_engine", 0).coerceIn(0, searchEngines.lastIndex)
         trackerCount = prefs.getInt("tracker_count", 0)
@@ -288,6 +293,8 @@ class MainActivity : AppCompatActivity() {
 
         renderSpeedDials()
         checkAndClearCache()
+        
+        handleIncomingIntent(intent)
 
         try {
             val dm = getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
@@ -312,6 +319,7 @@ class MainActivity : AppCompatActivity() {
             prefs.edit().putBoolean("pending_incognito_exit", false).commit()
             intent.removeExtra("from_splash")
         }
+        handleIncomingIntent(intent)
     }
 
     private fun handleIncomingIntent(intent: Intent?) {
@@ -320,7 +328,6 @@ class MainActivity : AppCompatActivity() {
         if (intent.action == Intent.ACTION_VIEW) {
             val url = intent.data?.toString()
             if (!url.isNullOrEmpty()) {
-                // External link aane par direct load karein
                 if (this::webView.isInitialized) {
                     isUpdatingUrl = true
                     addressBar?.setText(url)
@@ -333,7 +340,6 @@ class MainActivity : AppCompatActivity() {
                         dockController.hideDockAndShowPill()
                     }
                     
-                    // Tab title update karein
                     TabManager.updateActiveTabTitle(url, url)
                     
                     webView.visibility = View.VISIBLE
@@ -391,6 +397,26 @@ class MainActivity : AppCompatActivity() {
                     executeIncognitoKillNow()
                 }
             }, delayMs)
+        }
+    }
+
+    private fun startTrackingTime() {
+        if (sessionStartTime == 0L && currentSessionDomain != null && !isBrowserPaused) {
+            sessionStartTime = System.currentTimeMillis()
+        }
+    }
+
+    private fun stopTrackingTime() {
+        if (sessionStartTime > 0 && currentSessionDomain != null) {
+            val durationSec = (System.currentTimeMillis() - sessionStartTime) / 1000
+            if (durationSec >= 5) {
+                if (TabManager.getActiveTab()?.isIncognito != true) {
+                    val title = webView.title ?: currentSessionDomain!!
+                    val url = webView.url ?: "https://$currentSessionDomain"
+                    smartDbHelper.recordVisit(currentSessionDomain!!, title, url, durationSec)
+                }
+            }
+            sessionStartTime = 0L
         }
     }
 
@@ -464,7 +490,6 @@ class MainActivity : AppCompatActivity() {
         }
         updateSecureFlag()
     }
-
     private fun setupSuggestions() {
         suggestionsAdapter = object : ArrayAdapter<String>(this, R.layout.item_suggestion, R.id.txt_suggestion, mutableListOf()) {
             override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
@@ -618,22 +643,16 @@ class MainActivity : AppCompatActivity() {
         finalDials.add(HistoryItem("Reddit", "https://reddit.com", 0L))
         finalDials.add(HistoryItem("YouTube", "https://youtube.com", 0L))
 
-        val searchDomains = listOf("google.com", "bing.com", "duckduckgo.com", "search.brave.com", "yahoo.com", "ecosia.org")
-
-        val dynamicDials = try {
-            dbHelper.getMostVisitedSites(50).filter {
-                val lowerUrl = it.url.lowercase()
-                val isHardcoded = lowerUrl.contains("github.com") || lowerUrl.contains("reddit.com") || lowerUrl.contains("youtube.com")
-                val isSearch = searchDomains.any { domain ->
-                    lowerUrl.contains(domain) && (lowerUrl.contains("?q=") || lowerUrl.contains("&q=") || lowerUrl.contains("/search") || lowerUrl.contains("?p="))
-                }
-                !isHardcoded && !isSearch
+        val smartDials = try {
+            smartDbHelper.getTop8Sites().filter { smart ->
+                val domain = UrlUtils.getBaseDomain(smart.url) ?: ""
+                domain != "github.com" && domain != "reddit.com" && domain != "youtube.com"
             }
         } catch (e: Exception) {
             emptyList()
         }
 
-        finalDials.addAll(dynamicDials.take(5))
+        finalDials.addAll(smartDials.take(5))
 
         for (dial in finalDials) {
             val itemView = LayoutInflater.from(this).inflate(R.layout.item_speed_dial, speedDialGrid, false)
@@ -673,7 +692,12 @@ class MainActivity : AppCompatActivity() {
             itemView.setOnLongClickListener {
                 val isHardcoded = dial.url.contains("github.com") || dial.url.contains("reddit.com") || dial.url.contains("youtube.com")
                 if (!isHardcoded) {
-                    showRemoveSpeedDialDialog(dial)
+                    val domain = UrlUtils.getBaseDomain(dial.url)
+                    if (domain != null) {
+                        smartDbHelper.resetSiteStats(domain)
+                    }
+                    renderSpeedDials()
+                    Toast.makeText(this, "Removed. Can return if visited frequently.", Toast.LENGTH_SHORT).show()
                 } else {
                     Toast.makeText(this, "Cannot remove default sites", Toast.LENGTH_SHORT).show()
                 }
@@ -873,7 +897,6 @@ class MainActivity : AppCompatActivity() {
         findViewById<ImageButton>(R.id.btn_menu)?.setOnClickListener { view ->
             val popup = PopupMenu(this, view)
             
-            // Order is fixed so Settings appears at the very bottom
             popup.menu.add(0, 1, 1, "Incognito Mode")
             popup.menu.add(0, 2, 2, "History")
             popup.menu.add(0, 5, 3, "Bookmarks")
@@ -923,7 +946,6 @@ class MainActivity : AppCompatActivity() {
             popup.show()
         }
     }
-
     private fun setupErrorPage() {
         findViewById<Button>(R.id.error_btn_retry)?.setOnClickListener {
             lastFailedUrl?.let { loadUrlOrSearch(it) }
@@ -1059,6 +1081,11 @@ class MainActivity : AppCompatActivity() {
     @SuppressLint("SetJavaScriptEnabled")
     private fun setupWebView() {
         val settings = webView.settings
+        
+        val cookieManager = CookieManager.getInstance()
+        cookieManager.setAcceptCookie(true)
+        cookieManager.setAcceptThirdPartyCookies(webView, true)
+
         settings.javaScriptEnabled = true
         settings.domStorageEnabled = true
         settings.loadWithOverviewMode = true
@@ -1153,43 +1180,34 @@ class MainActivity : AppCompatActivity() {
         webView.reload()
     }
 
-    // ==========================================
-    // READER MODE (Aggressive CSS Injection)
-    // ==========================================
     private fun toggleReaderMode() {
         isReaderMode = !isReaderMode
         
         if (isReaderMode) {
             val readerJS = """
                 (function() {
-                    // 1. Hide ads, sidebars, headers, etc.
                     var elementsToRemove = document.querySelectorAll('header, footer, nav, aside, .ad, .ads, .advertisement, .sidebar, script, iframe, noscript, [role="banner"], [role="navigation"]');
                     for (var i = 0; i < elementsToRemove.length; i++) {
                         elementsToRemove[i].style.display = 'none';
                     }
                     
-                    // 2. Inject a strong CSS style to override all white backgrounds and text
                     var style = document.createElement('style');
                     style.innerHTML = `
-                        /* Force dark theme on every possible container */
                         html, body, div, article, main, section, span, p, h1, h2, h3, h4, h5, h6, li, table, tr, td {
                             background-color: #0B0B0D !important;
                             color: #FFFFFF !important;
                             border-color: #242429 !important;
                             font-family: sans-serif !important;
                         }
-                        /* Make links Neon Green */
                         a {
                             color: #00E676 !important;
                             text-decoration: none !important;
                         }
-                        /* Adjust images */
                         img {
                             max-width: 100% !important;
                             height: auto !important;
                             border-radius: 8px !important;
                         }
-                        /* Add padding to the body */
                         body {
                             padding: 20px !important;
                             max-width: 800px !important;
@@ -1377,9 +1395,6 @@ class MainActivity : AppCompatActivity() {
         cookieManager.flush()
     }
 
-    // ==========================================
-    // INCOGNITO AUTO-KILL EXECUTION
-    // ==========================================
     fun executeIncognitoKillNow() {
         if (!isWipingAndKilling.compareAndSet(false, true)) {
             abortAndRemoveTaskSilently()
@@ -1440,6 +1455,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        isBrowserPaused = false
 
         if (prefs.getBoolean("pending_incognito_exit", false) || isWipingAndKilling.get()) {
             abortAndRemoveTaskSilently()
@@ -1460,12 +1476,11 @@ class MainActivity : AppCompatActivity() {
             clearAllCookies {
                 restoreNormalCookies()
                 runOnUiThread {
-                    val activeTab = TabManager.getActiveTab()
-                    if (activeTab != null) {
-                        if (activeTab.url == "kryptos://home") {
-                            showHomepageUI()
-                        } else if (this::webView.isInitialized && webView.url != activeTab.url) {
-                            loadUrlOrSearch(activeTab.url)
+                    val currentTab = TabManager.getActiveTab()
+                    if (currentTab?.url == "kryptos://home") {
+                        showHomepageUI()
+                    } else if (currentTab != null) {
+                        loadUrlOrSearch(currentTab.url)
                     }
                 }
             }
@@ -1476,7 +1491,7 @@ class MainActivity : AppCompatActivity() {
             webView.visibility = View.VISIBLE
         }
         updateSecureFlag()
-        applyForceDarkMode() // Applies Force Dark Mode immediately when resumed
+        applyForceDarkMode() 
 
         val isFullscreenEnabled = prefs.getBoolean("fullscreen_mode", false)
         if (isFullscreenEnabled && !isImmersiveMode) {
@@ -1496,9 +1511,14 @@ class MainActivity : AppCompatActivity() {
                 loadUrlOrSearch(activeTab.url)
             }
         }
+        
+        startTrackingTime()
     }
 
     override fun onPause() {
+        isBrowserPaused = true
+        stopTrackingTime()
+        
         if (TabManager.hasIncognitoTabs()) {
             window.setBackgroundDrawable(ColorDrawable(Color.BLACK))
             if (this::webView.isInitialized) {
@@ -1518,7 +1538,6 @@ class MainActivity : AppCompatActivity() {
             outState.clear()
             return
         }
-        // We don't save WebView state to prevent it from loading old pages when returning from Recents
         outState.clear() 
         super.onSaveInstanceState(outState)
     }
@@ -1548,10 +1567,23 @@ class MainActivity : AppCompatActivity() {
     }
 
     inner class KryptosWebViewClient : WebViewClient() {
+
+        override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
+            val url = request?.url?.toString()?.lowercase() ?: return super.shouldInterceptRequest(view, request)
+            for (domain in TrackerList.blockedDomains) {
+                if (url.contains(domain)) {
+                    trackerCount++
+                    prefs.edit().putInt("tracker_count", trackerCount).apply()
+                    runOnUiThread { updateTrackerUI() }
+                    return WebResourceResponse("text/plain", "utf-8", ByteArrayInputStream("".toByteArray()))
+                }
+            }
+            return super.shouldInterceptRequest(view, request)
+        }
+
         override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
             val url = request?.url?.toString() ?: return false
 
-            // 1. Handle External App Links (Phone, Email, SMS, Maps, WhatsApp)
             if (url.startsWith("tel:") || url.startsWith("mailto:") || url.startsWith("sms:") || url.startsWith("geo:") || url.startsWith("intent:") || url.startsWith("whatsapp:")) {
                 try {
                     val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
@@ -1562,10 +1594,10 @@ class MainActivity : AppCompatActivity() {
                 return true
             }
 
-            // 2. Prevent non-web protocols from loading in WebView
             if (!url.startsWith("http://") && !url.startsWith("https://") && !url.startsWith("about:") && !url.startsWith("kryptos://")) {
                 return true
             }
+
             val downloadExtensions = listOf(
                 ".apk", ".aab", ".xapk", ".zip", ".rar", ".7z", ".tar", ".gz", ".bz2", ".xz",
                 ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".txt", ".csv", ".rtf", ".odt",
@@ -1605,7 +1637,6 @@ class MainActivity : AppCompatActivity() {
                 }
             }
 
-            // 4. Link Defanger
             val defangedUrl = defangUrl(url)
             if (url != defangedUrl) {
                 view?.loadUrl(defangedUrl)
@@ -1616,6 +1647,16 @@ class MainActivity : AppCompatActivity() {
 
         override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
             super.onPageStarted(view, url, favicon)
+            
+            val newDomain = UrlUtils.getBaseDomain(url ?: "")
+            if (newDomain != null && newDomain != currentSessionDomain) {
+                stopTrackingTime()
+                currentSessionDomain = newDomain
+                startTrackingTime()
+            } else if (newDomain != null) {
+                startTrackingTime()
+            }
+
             isUpdatingUrl = true
             addressBar?.setText(if (url != "about:blank") url else "kryptos://home")
             isUpdatingUrl = false
@@ -1656,6 +1697,9 @@ class MainActivity : AppCompatActivity() {
                 if (this@MainActivity::dockController.isInitialized) {
                     dockController.updatePillColor()
                 }
+                
+                startTrackingTime()
+                renderSpeedDials()
             }
         }
 
