@@ -988,6 +988,7 @@ class MainActivity : AppCompatActivity() {
     private fun showHomepageUI() {
         hideSuggestions()
         if (this::webView.isInitialized) {
+            webView.stopLoading()
             webView.clearHistory()
             webView.clearCache(true)
             webView.loadUrl("about:blank")
@@ -1370,9 +1371,6 @@ class MainActivity : AppCompatActivity() {
                 cookieManager.flush()
 
                 WebStorage.getInstance().deleteAllData()
-                if (this::dbHelper.isInitialized) {
-                    dbHelper.clearHistory()
-                }
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -1418,11 +1416,12 @@ class MainActivity : AppCompatActivity() {
             clearAllCookies {
                 restoreNormalCookies()
                 runOnUiThread {
-                    val currentTab = TabManager.getActiveTab()
-                    if (currentTab?.url == "kryptos://home") {
-                        showHomepageUI()
-                    } else if (currentTab != null) {
-                        loadUrlOrSearch(currentTab.url)
+                    val activeTab = TabManager.getActiveTab()
+                    if (activeTab != null) {
+                        if (activeTab.url == "kryptos://home") {
+                            showHomepageUI()
+                        } else if (this::webView.isInitialized && webView.url != activeTab.url) {
+                            loadUrlOrSearch(activeTab.url)
                     }
                 }
             }
