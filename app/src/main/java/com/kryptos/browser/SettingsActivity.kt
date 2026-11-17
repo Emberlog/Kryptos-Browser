@@ -12,7 +12,6 @@ import android.provider.Settings
 import android.view.View
 import android.view.Window
 import android.app.role.RoleManager
-import android.provider.Settings
 import androidx.activity.result.contract.ActivityResultContracts
 import android.webkit.CookieManager
 import android.webkit.WebStorage
