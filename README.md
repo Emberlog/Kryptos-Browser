@@ -91,7 +91,7 @@ Kryptos utilizes a fully cloud-based CI/CD pipeline. **No local PC or Android St
 ## 🤝 Contributing
 
 As an open-source project, contributions are welcome. If you find a bug or have a feature request:
-1. Check the [Issues](https://github.com/RishabhIsGreat77/Kryptos-Browser/issues) tab to see if it's already reported.
+1. Check the [Issues](https://github.com/Emberlog/Kryptos-Browser/issues) tab to see if it's already reported.
 2. If not, open a new issue with a detailed description of the bug and steps to reproduce.
 3. For code contributions, please open a Pull Request with a clear explanation of the changes.
 
