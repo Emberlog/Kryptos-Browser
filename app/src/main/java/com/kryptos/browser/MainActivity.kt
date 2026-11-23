@@ -288,6 +288,7 @@ class MainActivity : AppCompatActivity() {
         updateTabCountUI()
         setupWebView()
         setupToolbar()
+        setupEdgePanel()
         setupErrorPage()
         setupBackPressHandler()
 
@@ -371,6 +372,77 @@ class MainActivity : AppCompatActivity() {
 
     private fun shouldKillIncognito(): Boolean {
         return prefs.getBoolean("incognito_kill", true) && TabManager.hasIncognitoTabs()
+    }
+
+    private fun setupEdgePanel() {
+        val drawerLayout = findViewById<androidx.drawerlayout.widget.DrawerLayout>(R.id.drawer_layout)
+
+        // Close Button
+        findViewById<ImageView>(R.id.btn_close_panel)?.setOnClickListener {
+            drawerLayout.closeDrawer(android.view.Gravity.END)
+        }
+
+        // Navigation Items
+        findViewById<android.widget.LinearLayout>(R.id.menu_history)?.setOnClickListener {
+            drawerLayout.closeDrawer(android.view.Gravity.END)
+            startActivity(Intent(this, HistoryActivity::class.java))
+        }
+
+        findViewById<android.widget.LinearLayout>(R.id.menu_bookmarks)?.setOnClickListener {
+            drawerLayout.closeDrawer(android.view.Gravity.END)
+            startActivity(Intent(this, BookmarksActivity::class.java))
+        }
+
+        findViewById<android.widget.LinearLayout>(R.id.menu_downloads)?.setOnClickListener {
+            drawerLayout.closeDrawer(android.view.Gravity.END)
+            startActivity(Intent(this, DownloadsActivity::class.java))
+        }
+
+        // Tools Items
+        findViewById<android.widget.LinearLayout>(R.id.menu_incognito)?.setOnClickListener {
+            drawerLayout.closeDrawer(android.view.Gravity.END)
+            if (TabManager.tabsList.none { it.isIncognito }) {
+                backupNormalCookies()
+                clearAllCookies()
+            }
+            val newTab = TabManager.addNewTab("kryptos://home", "Incognito Tab", true)
+            TabManager.setActiveTab(newTab.id)
+            showHomepageUI()
+            updateTabCountUI()
+            Toast.makeText(this, "Incognito Tab Opened", Toast.LENGTH_SHORT).show()
+        }
+
+        findViewById<android.widget.LinearLayout>(R.id.menu_reader_mode)?.setOnClickListener {
+            drawerLayout.closeDrawer(android.view.Gravity.END)
+            toggleReaderMode()
+        }
+
+        findViewById<android.widget.LinearLayout>(R.id.menu_desktop_site)?.setOnClickListener {
+            drawerLayout.closeDrawer(android.view.Gravity.END)
+            toggleDesktopMode()
+        }
+
+        // Settings
+        findViewById<android.widget.LinearLayout>(R.id.menu_settings)?.setOnClickListener {
+            drawerLayout.closeDrawer(android.view.Gravity.END)
+            startActivity(Intent(this, SettingsActivity::class.java))
+        }
+
+        // Handle Dock Timer when Panel opens/closes
+        drawerLayout.addDrawerListener(object : androidx.drawerlayout.widget.DrawerLayout.DrawerListener {
+            override fun onDrawerSlide(drawerView: View, slideOffset: Float) {}
+            override fun onDrawerOpened(drawerView: View) {
+                if (this@MainActivity::dockController.isInitialized) {
+                    dockController.stopTimer()
+                }
+            }
+            override fun onDrawerClosed(drawerView: View) {
+                if (this@MainActivity::dockController.isInitialized) {
+                    dockController.resetAutoHideTimer()
+                }
+            }
+            override fun onDrawerStateChanged(newState: Int) {}
+        })
     }
 
     private fun isDisplayOn(): Boolean {
@@ -646,12 +718,13 @@ class MainActivity : AppCompatActivity() {
         val smartDials = try {
             smartDbHelper.getTop8Sites().filter { smart ->
                 val domain = UrlUtils.getBaseDomain(smart.url) ?: ""
-                domain != "github.com" && domain != "reddit.com" && domain != "youtube.com"
+                // Filter out hardcoded sites and their subdomains (like m.youtube.com)
+                !domain.endsWith("github.com") && !domain.endsWith("reddit.com") && !domain.endsWith("youtube.com")
             }
         } catch (e: Exception) {
             emptyList()
         }
-
+        
         finalDials.addAll(smartDials.take(5))
 
         for (dial in finalDials) {
@@ -894,56 +967,9 @@ class MainActivity : AppCompatActivity() {
             startActivity(Intent(this, TabsActivity::class.java))
         }
 
-        findViewById<ImageButton>(R.id.btn_menu)?.setOnClickListener { view ->
-            val popup = PopupMenu(this, view)
-            
-            popup.menu.add(0, 1, 1, "Incognito Mode")
-            popup.menu.add(0, 2, 2, "History")
-            popup.menu.add(0, 5, 3, "Bookmarks")
-            popup.menu.add(0, 6, 4, "Desktop Site")
-            popup.menu.add(0, 8, 5, "Downloads")
-            popup.menu.add(0, 9, 6, "Reader Mode")
-            popup.menu.add(0, 4, 7, "Settings") 
-
-            popup.setOnMenuItemClickListener { item ->
-                when (item.itemId) {
-                    1 -> {
-                        if (TabManager.tabsList.none { it.isIncognito }) {
-                            backupNormalCookies()
-                            clearAllCookies()
-                        }
-                        val newTab = TabManager.addNewTab("kryptos://home", "Incognito Tab", true)
-                        TabManager.setActiveTab(newTab.id)
-                        showHomepageUI()
-                        updateTabCountUI()
-                        Toast.makeText(this, "Incognito Tab Opened", Toast.LENGTH_SHORT).show()
-                        true
-                    }
-                    2 -> { startActivity(Intent(this, HistoryActivity::class.java)); true }
-                    5 -> { startActivity(Intent(this, BookmarksActivity::class.java)); true }
-                    6 -> {
-                        toggleDesktopMode()
-                        true
-                    }
-                    8 -> { startActivity(Intent(this, DownloadsActivity::class.java)); true }
-                    9 -> {
-                        toggleReaderMode()
-                        true
-                    }
-                    4 -> { startActivity(Intent(this, SettingsActivity::class.java)); true }
-                    else -> false
-                }
-            }
-            
-            if (this::dockController.isInitialized) {
-                dockController.stopTimer()
-            }
-            popup.setOnDismissListener {
-                if (this::dockController.isInitialized) {
-                    dockController.resetAutoHideTimer()
-                }
-            }
-            popup.show()
+        findViewById<ImageButton>(R.id.btn_menu)?.setOnClickListener {
+            val drawerLayout = findViewById<androidx.drawerlayout.widget.DrawerLayout>(R.id.drawer_layout)
+            drawerLayout.openDrawer(android.view.Gravity.END)
         }
     }
     private fun setupErrorPage() {
