@@ -30,12 +30,21 @@ class SmartSpeedDialDatabaseHelper(context: Context) : SQLiteOpenHelper(context,
     }
 
     fun recordVisit(domain: String, title: String, url: String, activeDurationSec: Long) {
-        if (activeDurationSec < 5) return // Ignore short visits
+        // 1. Ignore short/accidental visits
+        if (activeDurationSec < 5) return 
+
+        // 2. Ignore internal pages, about:blank, and search engine URLs
+        if (domain.isEmpty() || domain == "about" || url.startsWith("about:") || url.startsWith("kryptos://")) return
+        
+        val lowerUrl = url.lowercase()
+        val isSearch = lowerUrl.contains("?q=") || lowerUrl.contains("&q=") || lowerUrl.contains("/search?") || lowerUrl.contains("?p=")
+        if (isSearch) return
 
         val db = this.writableDatabase
         val cursor = db.rawQuery("SELECT * FROM smart_dials WHERE domain=?", arrayOf(domain))
         
         val now = System.currentTimeMillis()
+        // Calculate the start of today (midnight) to accurately count different days visited
         val todayStart = now - (now % (24 * 60 * 60 * 1000))
 
         if (cursor.moveToFirst()) {
@@ -45,6 +54,7 @@ class SmartSpeedDialDatabaseHelper(context: Context) : SQLiteOpenHelper(context,
             val totalDuration = cursor.getLong(cursor.getColumnIndexOrThrow("total_duration_sec"))
             
             val lastVisitDay = lastVisitTime - (lastVisitTime % (24 * 60 * 60 * 1000))
+            // If the last visit was before today, increment the days counter
             val newDaysCount = if (todayStart > lastVisitDay) currentDays + 1 else currentDays
 
             val values = ContentValues().apply {
@@ -57,6 +67,7 @@ class SmartSpeedDialDatabaseHelper(context: Context) : SQLiteOpenHelper(context,
             }
             db.update("smart_dials", values, "domain=?", arrayOf(domain))
         } else {
+            // First time visiting this domain
             val values = ContentValues().apply {
                 put("domain", domain)
                 put("title", title)
@@ -72,6 +83,7 @@ class SmartSpeedDialDatabaseHelper(context: Context) : SQLiteOpenHelper(context,
         }
         cursor.close()
         
+        // Recalculate scores and enforce the Top 8 limit
         updateAllScoresAndLimit(db)
         db.close()
     }
