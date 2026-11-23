@@ -11,8 +11,6 @@ import android.os.Bundle
 import android.provider.Settings
 import android.view.View
 import android.view.Window
-import android.app.role.RoleManager
-import androidx.activity.result.contract.ActivityResultContracts
 import android.webkit.CookieManager
 import android.webkit.WebStorage
 import android.widget.Switch
@@ -44,31 +42,11 @@ class SettingsActivity : AppCompatActivity() {
         val switchForceDark = findViewById<Switch>(R.id.switch_force_dark)
         val switchFullscreen = findViewById<Switch>(R.id.switch_fullscreen)
 
-        val txtClearData = findViewById<TextView>(R.id.txt_clear_data_settings)
-        val txtCheckUpdates = findViewById<TextView>(R.id.txt_check_updates)
-        // Set as Default Browser
-        val txtSetDefault = findViewById<TextView>(R.id.txt_set_default_browser)
-        txtSetDefault.setOnClickListener {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                val roleManager = getSystemService(Context.ROLE_SERVICE) as RoleManager
-                if (roleManager.isRoleAvailable(RoleManager.ROLE_BROWSER)) {
-                    if (roleManager.isRoleHeld(RoleManager.ROLE_BROWSER)) {
-                        Toast.makeText(this, "Kryptos is already your default browser!", Toast.LENGTH_SHORT).show()
-                    } else {
-                        // Android 10+ (API 29+) ke liye system popup request
-                        val intent = roleManager.createRequestRoleIntent(RoleManager.ROLE_BROWSER)
-                        startActivityForResult(intent, 1234)
-                    }
-                } else {
-                    Toast.makeText(this, "Default browser setting not available on this device.", Toast.LENGTH_SHORT).show()
-                }
-            } else {
-                // Android 9 aur usse purane ke liye settings page open karein
-                Toast.makeText(this, "Please set Kryptos as default browser from Settings.", Toast.LENGTH_LONG).show()
-                val intent = Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS)
-                startActivity(intent)
-            }
-        }
+        val txtClearData = findViewById<LinearLayout>(R.id.txt_clear_data_settings)
+        val txtSetDefault = findViewById<LinearLayout>(R.id.txt_set_default_browser)
+        val txtCheckUpdates = findViewById<LinearLayout>(R.id.txt_check_updates)
+        val txtBuyMeCoffee = findViewById<LinearLayout>(R.id.txt_buy_me_coffee)
+        val txtPasswordManager = findViewById<LinearLayout>(R.id.txt_password_manager)
 
         // Load Saved States
         switchSuggestions.isChecked = prefs.getBoolean("search_suggestions", true)
@@ -98,7 +76,31 @@ class SettingsActivity : AppCompatActivity() {
         switchFullscreen.setOnCheckedChangeListener { _, isChecked ->
             prefs.edit().putBoolean("fullscreen_mode", isChecked).apply()
         }
-                // Clear Data Option
+
+        // Set as Default Browser
+        txtSetDefault.setOnClickListener {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                val roleManager = getSystemService(Context.ROLE_SERVICE) as android.app.role.RoleManager
+                if (roleManager.isRoleAvailable(android.app.role.RoleManager.ROLE_BROWSER)) {
+                    if (roleManager.isRoleHeld(android.app.role.RoleManager.ROLE_BROWSER)) {
+                        Toast.makeText(this, "Kryptos is already your default browser!", Toast.LENGTH_SHORT).show()
+                    } else {
+                        val intent = roleManager.createRequestRoleIntent(android.app.role.RoleManager.ROLE_BROWSER)
+                        startActivityForResult(intent, 1234)
+                    }
+                }
+            } else {
+                val intent = Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS)
+                startActivity(intent)
+            }
+        }
+
+        // Password Manager (Placeholder for V6)
+        txtPasswordManager.setOnClickListener {
+            Toast.makeText(this, "Password Manager coming in V6!", Toast.LENGTH_SHORT).show()
+        }
+
+        // Clear Data Option
         txtClearData.setOnClickListener {
             val dialog = Dialog(this)
             dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
@@ -118,20 +120,17 @@ class SettingsActivity : AppCompatActivity() {
             btnConfirm.setOnClickListener {
                 dialog.dismiss()
                 
-                // 1. Clear WebView Data (Cookies & Cache)
                 WebStorage.getInstance().deleteAllData()
                 val cookieManager = CookieManager.getInstance()
                 cookieManager.removeAllCookies(null)
                 cookieManager.flush()
                 
-                // 2. Clear Local Databases (History & Bookmarks) - NEW FIX
                 val historyDb = HistoryDatabaseHelper(this)
                 historyDb.clearHistory()
                 
                 val bookmarkDb = BookmarkDatabaseHelper(this)
                 bookmarkDb.clearBookmarks()
                 
-                // 3. Clear Tabs
                 TabManager.resetAllTabs()
                 
                 showCustomToast("All browsing data cleared successfully!")
@@ -143,17 +142,16 @@ class SettingsActivity : AppCompatActivity() {
         txtCheckUpdates.setOnClickListener {
             showCheckingDialog()
         }
-                // Buy Me a Coffee Option
-        val txtBuyMeCoffee = findViewById<TextView>(R.id.txt_buy_me_coffee)
+
+        // Buy Me a Coffee
         txtBuyMeCoffee.setOnClickListener {
-            // Intent to open the link inside our own MainActivity
             val intent = Intent(this, MainActivity::class.java).apply {
                 action = Intent.ACTION_VIEW
                 data = Uri.parse("https://www.buymeacoffee.com/Emberlog")
                 flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
             }
             startActivity(intent)
-            finish() // Close Settings so the user lands directly on the website
+            finish()
         }
     }
 
