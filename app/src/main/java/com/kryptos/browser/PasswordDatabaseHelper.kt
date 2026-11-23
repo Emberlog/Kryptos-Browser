@@ -58,4 +58,21 @@ class PasswordDatabaseHelper(context: Context) : SQLiteOpenHelper(context, "Kryp
         db.delete("passwords", "domain=?", arrayOf(domain))
         db.close()
     }
+    fun getAllPasswords(): List<SavedPassword> {
+        val list = mutableListOf<SavedPassword>()
+        val db = this.readableDatabase
+        val cursor = db.rawQuery("SELECT id, domain, username, password FROM passwords ORDER BY id DESC", null)
+        if (cursor.moveToFirst()) {
+            do {
+                val id = cursor.getInt(0)
+                val domain = cursor.getString(1)
+                val user = cursor.getString(2)
+                val pass = cursor.getString(3)
+                list.add(SavedPassword(id, domain, user, pass))
+            } while (cursor.moveToNext())
+        }
+        cursor.close()
+        db.close()
+        return list
+    }
 }
