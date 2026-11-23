@@ -69,6 +69,7 @@
         <activity android:name=".HistoryActivity" android:exported="false" />
         <activity android:name=".BookmarksActivity" android:exported="false" />
         <activity android:name=".DownloadsActivity" android:exported="false" />
+        <activity android:name=".PasswordManagerActivity" android:exported="false" />
 
         <!-- FileProvider for Auto-Updater -->
         <provider
