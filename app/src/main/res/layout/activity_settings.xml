@@ -1,212 +1,395 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:fillViewport="true"
-    android:background="@color/kryptos_background">
+    android:background="#0B0B0D"
+    android:fillViewport="true">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="20dp">
+        android:padding="16dp">
 
+        <!-- Header -->
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:layout_marginBottom="24dp"
             android:text="Settings"
-            android:textColor="@color/kryptos_text_primary"
-            android:textSize="28sp"
-            android:textStyle="bold"
-            android:layout_marginBottom="24dp"/>
+            android:textColor="#FFFFFF"
+            android:textSize="32sp"
+            android:textStyle="bold" />
 
-        <!-- Search Suggestions Toggle -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:paddingVertical="12dp">
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Search Suggestions"
-                android:textColor="@color/kryptos_text_primary"
-                android:textSize="16sp"/>
-            <Switch
-                android:id="@+id/switch_suggestions"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content" />
-        </LinearLayout>
-
-        <!-- Dark Mode Toggle -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:paddingVertical="12dp">
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Dark Mode"
-                android:textColor="@color/kryptos_text_primary"
-                android:textSize="16sp"/>
-            <Switch
-                android:id="@+id/switch_dark_mode"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content" />
-        </LinearLayout>
-
-        <!-- SECURITY & PRIVACY SECTION -->
+        <!-- ========================================== -->
+        <!-- SECTION 1: GENERAL                         -->
+        <!-- ========================================== -->
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Security &amp; Privacy"
-            android:textColor="@color/kryptos_text_secondary"
-            android:textSize="14sp"
-            android:textStyle="bold"
-            android:layout_marginTop="24dp"
-            android:layout_marginBottom="8dp"/>
+            android:layout_marginStart="8dp"
+            android:layout_marginBottom="8dp"
+            android:text="GENERAL"
+            android:textColor="#8B8B93"
+            android:textSize="12sp"
+            android:textStyle="bold" />
 
-        <!-- Incognito Auto-Kill Toggle -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:paddingVertical="12dp">
+            android:layout_marginBottom="24dp"
+            android:background="#141418"
+            android:orientation="vertical"
+            android:padding="8dp">
+
+            <!-- Search Suggestions -->
             <LinearLayout
-                android:layout_width="0dp"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:orientation="vertical">
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:padding="12dp">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Search Suggestions"
+                    android:textColor="#FFFFFF"
+                    android:textSize="16sp" />
+
+                <Switch
+                    android:id="@+id/switch_suggestions"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" />
+            </LinearLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="#242429" />
+
+            <!-- Set Default Browser -->
+            <LinearLayout
+                android:id="@+id/txt_set_default_browser"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="?attr/selectableItemBackground"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:padding="12dp">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Set as Default Browser"
+                    android:textColor="#8B8B93"
+                    android:textSize="16sp" />
+
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:text="Open"
+                    android:textColor="#00E676"
+                    android:textSize="14sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- ========================================== -->
+        <!-- SECTION 2: PRIVACY & SECURITY              -->
+        <!-- ========================================== -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:layout_marginBottom="8dp"
+            android:text="PRIVACY &amp; SECURITY"
+            android:textColor="#8B8B93"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="24dp"
+            android:background="#141418"
+            android:orientation="vertical"
+            android:padding="8dp">
+
+            <!-- Incognito Auto-Kill -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:padding="12dp">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
                     android:text="Incognito Auto-Kill"
-                    android:textColor="@color/kryptos_text_primary"
-                    android:textSize="16sp"/>
+                    android:textColor="#FFFFFF"
+                    android:textSize="16sp" />
+
+                <Switch
+                    android:id="@+id/switch_incognito_kill"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" />
+            </LinearLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="#242429" />
+
+            <!-- Password Manager (V6) -->
+            <LinearLayout
+                android:id="@+id/txt_password_manager"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="?attr/selectableItemBackground"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:padding="12dp">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Password Manager"
+                    android:textColor="#FFFFFF"
+                    android:textSize="16sp" />
+
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Kill app and clear data when screen locks"
-                    android:textColor="@color/kryptos_text_secondary"
-                    android:textSize="12sp"/>
+                    android:text="›"
+                    android:textColor="#8B8B93"
+                    android:textSize="20sp" />
             </LinearLayout>
-            <Switch
-                android:id="@+id/switch_incognito_kill"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="#242429" />
+
+            <!-- Clear Data -->
+            <LinearLayout
+                android:id="@+id/txt_clear_data_settings"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="?attr/selectableItemBackground"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:padding="12dp">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Clear Browsing Data"
+                    android:textColor="#EF4444"
+                    android:textSize="16sp" />
+            </LinearLayout>
         </LinearLayout>
 
-                <!-- Force Dark Mode Toggle -->
+        <!-- ========================================== -->
+        <!-- SECTION 3: APPEARANCE                      -->
+        <!-- ========================================== -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:layout_marginBottom="8dp"
+            android:text="APPEARANCE"
+            android:textColor="#8B8B93"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:paddingVertical="12dp">
+            android:layout_marginBottom="24dp"
+            android:background="#141418"
+            android:orientation="vertical"
+            android:padding="8dp">
+
+            <!-- Dark Mode -->
             <LinearLayout
-                android:layout_width="0dp"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:orientation="vertical">
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:padding="12dp">
+
                 <TextView
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Dark Mode"
+                    android:textColor="#FFFFFF"
+                    android:textSize="16sp" />
+
+                <Switch
+                    android:id="@+id/switch_dark_mode"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" />
+            </LinearLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="#242429" />
+
+            <!-- Force Dark Mode -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:padding="12dp">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
                     android:text="Force Dark Mode"
-                    android:textColor="@color/kryptos_text_primary"
-                    android:textSize="16sp"/>
-                <TextView
+                    android:textColor="#FFFFFF"
+                    android:textSize="16sp" />
+
+                <Switch
+                    android:id="@+id/switch_force_dark"
                     android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Force dark theme on all websites"
-                    android:textColor="@color/kryptos_text_secondary"
-                    android:textSize="12sp"/>
+                    android:layout_height="wrap_content" />
             </LinearLayout>
-            <Switch
-                android:id="@+id/switch_force_dark"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="#242429" />
+
+            <!-- Fullscreen Mode -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:padding="12dp">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Fullscreen Mode"
+                    android:textColor="#FFFFFF"
+                    android:textSize="16sp" />
+
+                <Switch
+                    android:id="@+id/switch_fullscreen"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" />
+            </LinearLayout>
         </LinearLayout>
 
-        <!-- Fullscreen Mode Toggle -->
+        <!-- ========================================== -->
+        <!-- SECTION 4: ADVANCED                        -->
+        <!-- ========================================== -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:layout_marginBottom="8dp"
+            android:text="ADVANCED"
+            android:textColor="#8B8B93"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:paddingVertical="12dp">
+            android:layout_marginBottom="32dp"
+            android:background="#141418"
+            android:orientation="vertical"
+            android:padding="8dp">
+
+            <!-- Video Downloader (V6) -->
             <LinearLayout
-                android:layout_width="0dp"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:orientation="vertical">
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:padding="12dp"
+                android:alpha="0.5">
+
                 <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Video Downloader (V6)"
+                    android:textColor="#FFFFFF"
+                    android:textSize="16sp" />
+
+                <Switch
+                    android:id="@+id/switch_video_downloader"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Fullscreen Mode"
-                    android:textColor="@color/kryptos_text_primary"
-                    android:textSize="16sp"/>
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Hide top bar and dock for immersive browsing"
-                    android:textColor="@color/kryptos_text_secondary"
-                    android:textSize="12sp"/>
+                    android:enabled="false" />
             </LinearLayout>
-            <Switch
-                android:id="@+id/switch_fullscreen"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="#242429" />
+
+            <!-- Check for Updates -->
+            <LinearLayout
+                android:id="@+id/txt_check_updates"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="?attr/selectableItemBackground"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:padding="12dp">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Check for Updates"
+                    android:textColor="#FFFFFF"
+                    android:textSize="16sp" />
+            </LinearLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="#242429" />
+
+            <!-- Buy Me a Coffee -->
+            <LinearLayout
+                android:id="@+id/txt_buy_me_coffee"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="?attr/selectableItemBackground"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:padding="12dp">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="☕ Buy Me a Coffee"
+                    android:textColor="#00E676"
+                    android:textSize="16sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
         </LinearLayout>
-
-        <!-- Clear Data Option -->
-        <TextView
-            android:id="@+id/txt_clear_data_settings"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Clear Browsing Data"
-            android:textColor="@color/kryptos_text_secondary"
-            android:textSize="16sp"
-            android:paddingVertical="16dp"
-            android:layout_marginTop="16dp"/>
-
-        <!-- Set as Default Browser Option -->
-        <TextView
-            android:id="@+id/txt_set_default_browser"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Set as Default Browser"
-            android:textColor="@color/kryptos_text_secondary"
-            android:textStyle="bold"
-            android:textSize="16sp"
-            android:paddingVertical="16dp"
-            android:layout_marginTop="16dp"/>
-
-        <!-- Check for Updates Option -->
-        <TextView
-            android:id="@+id/txt_check_updates"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Check for Updates"
-            android:textColor="@color/kryptos_text_secondary"
-            android:textSize="16sp"
-            android:paddingVertical="16dp"/>
-                <!-- Buy Me a Coffee Option -->
-        <TextView
-            android:id="@+id/txt_buy_me_coffee"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="☕ Buy Me a Coffee"
-            android:textColor="@color/kryptos_primary"
-            android:textStyle="bold"
-            android:textSize="16sp"
-            android:paddingVertical="16dp"
-            android:layout_marginTop="8dp"/>
 
     </LinearLayout>
 </ScrollView>
