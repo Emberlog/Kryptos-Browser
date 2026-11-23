@@ -5,6 +5,7 @@ import android.annotation.SuppressLint
 import android.app.Activity
 import android.app.ActivityManager
 import android.app.Application
+import android.widget.*
 import android.app.Dialog
 import android.app.DownloadManager
 import android.app.KeyguardManager
