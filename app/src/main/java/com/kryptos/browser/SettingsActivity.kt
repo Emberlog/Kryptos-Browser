@@ -96,9 +96,9 @@ class SettingsActivity : AppCompatActivity() {
             }
         }
 
-        // Password Manager (Placeholder for V6)
+                // Password Manager
         txtPasswordManager.setOnClickListener {
-            Toast.makeText(this, "Password Manager coming in V6!", Toast.LENGTH_SHORT).show()
+            startActivity(Intent(this, PasswordManagerActivity::class.java))
         }
 
         // Clear Data Option
