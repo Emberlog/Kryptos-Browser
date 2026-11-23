@@ -7,6 +7,7 @@ import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.net.Uri
 import android.os.Build
+import android.widget.LinearLayout
 import android.os.Bundle
 import android.provider.Settings
 import android.view.View
