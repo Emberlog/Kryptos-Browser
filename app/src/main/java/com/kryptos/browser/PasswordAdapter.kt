@@ -7,7 +7,7 @@ import android.widget.ImageView
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 
-data class SavedPassword(val id: Int, val domain: String, val username: String, val password: String)
+data class SavedPassword(val id: Int, val domain: String, val name: String, val username: String, val password: String)
 
 class PasswordAdapter(
     private val passwords: List<SavedPassword>,
