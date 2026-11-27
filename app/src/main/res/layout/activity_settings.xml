@@ -370,6 +370,25 @@
                 android:layout_height="1dp"
                 android:background="#242429" />
 
+            <!-- Report a Bug -->
+            <LinearLayout
+                android:id="@+id/txt_report_bug"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="?attr/selectableItemBackground"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:padding="12dp">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Report a Bug"
+                    android:textColor="@color/kryptos_text_primary"
+                    android:textSize="16sp" />
+            </LinearLayout>
+
             <!-- Buy Me a Coffee -->
             <LinearLayout
                 android:id="@+id/txt_buy_me_coffee"
