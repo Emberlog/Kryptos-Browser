@@ -289,8 +289,14 @@ class SettingsActivity : AppCompatActivity() {
 
         Thread {
             try {
-                // --- IMPORTANT: YAHAN APNA DISCORD WEBHOOK URL DAALNA ---
-                val webhookUrl = "https://discord.com/api/webhooks/1575854371546071201/Kat-oXLWdRn4EJKaJCWNzuD9ryRnCKbGYVZqm-Qqa5q4zsW2dEDKtCX6DLm1AricVVWz"
+                val webhookUrl = BuildConfig.DISCORD_WEBHOOK_URL
+                
+                if (webhookUrl.isEmpty()) {
+                    throw Exception("Webhook URL is not configured.")
+                }
+                if (webhookUrl.isEmpty()) {
+                    throw Exception("Webhook URL is not configured.")
+                }
                 
                 val packageInfo = packageManager.getPackageInfo(packageName, 0)
                 val appVersion = packageInfo.versionName
