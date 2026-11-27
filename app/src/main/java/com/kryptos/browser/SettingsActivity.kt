@@ -48,6 +48,7 @@ class SettingsActivity : AppCompatActivity() {
         val txtCheckUpdates = findViewById<LinearLayout>(R.id.txt_check_updates)
         val txtBuyMeCoffee = findViewById<LinearLayout>(R.id.txt_buy_me_coffee)
         val txtPasswordManager = findViewById<LinearLayout>(R.id.txt_password_manager)
+        val txtReportBug = findViewById<android.widget.LinearLayout>(R.id.txt_report_bug)
 
         // Load Saved States
         switchSuggestions.isChecked = prefs.getBoolean("search_suggestions", true)
@@ -142,6 +143,11 @@ class SettingsActivity : AppCompatActivity() {
         // Check for Updates
         txtCheckUpdates.setOnClickListener {
             showCheckingDialog()
+        }
+
+        // Report a Bug
+        txtReportBug.setOnClickListener {
+            showBugReportDialog()
         }
 
         // Buy Me a Coffee
@@ -247,6 +253,112 @@ class SettingsActivity : AppCompatActivity() {
     private fun extractVersionNumbers(raw: String): String {
         val match = Regex("\\d+(\\.\\d+)*").find(raw)
         return match?.value ?: raw.replace("v", "", ignoreCase = true).trim()
+    }
+
+        private fun showBugReportDialog() {
+        val dialog = Dialog(this)
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
+        dialog.setContentView(R.layout.dialog_bug_report)
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+
+        val etDescription = dialog.findViewById<android.widget.EditText>(R.id.et_bug_description)
+        val btnCancel = dialog.findViewById<TextView>(R.id.btn_bug_cancel)
+        val btnSubmit = dialog.findViewById<TextView>(R.id.btn_bug_submit)
+
+        btnCancel.setOnClickListener { dialog.dismiss() }
+
+        btnSubmit.setOnClickListener {
+            val description = etDescription.text.toString().trim()
+            if (description.isEmpty()) {
+                Toast.makeText(this, "Please describe the bug", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            dialog.dismiss()
+            sendBugReport(description)
+        }
+        dialog.show()
+    }
+
+    private fun sendBugReport(description: String) {
+        // Show loading (optional)
+        val progressDialog = android.app.ProgressDialog(this)
+        progressDialog.setMessage("Sending report...")
+        progressDialog.setCancelable(false)
+        progressDialog.show()
+
+        Thread {
+            try {
+                // --- IMPORTANT: YAHAN APNA DISCORD WEBHOOK URL DAALNA ---
+                val webhookUrl = "https://discord.com/api/webhooks/YOUR_WEBHOOK_ID/YOUR_WEBHOOK_TOKEN"
+                
+                val packageInfo = packageManager.getPackageInfo(packageName, 0)
+                val appVersion = packageInfo.versionName
+                val deviceModel = android.os.Build.MODEL
+                val androidVersion = android.os.Build.VERSION.RELEASE
+
+                // Create JSON Payload for Discord Embed
+                val jsonPayload = org.json.JSONObject().apply {
+                    val embedsArray = org.json.JSONArray()
+                    val embedObj = org.json.JSONObject().apply {
+                        put("title", "🐞 New Bug Report")
+                        put("description", description)
+                        put("color", 1507328) // Neon Green in decimal
+                        
+                        val fieldsArray = org.json.JSONArray()
+                        
+                        fieldsArray.put(org.json.JSONObject().apply {
+                            put("name", "App Version")
+                            put("value", "v$appVersion")
+                            put("inline", true)
+                        })
+                        fieldsArray.put(org.json.JSONObject().apply {
+                            put("name", "Device")
+                            put("value", deviceModel)
+                            put("inline", true)
+                        })
+                        fieldsArray.put(org.json.JSONObject().apply {
+                            put("name", "Android OS")
+                            put("value", "Android $androidVersion")
+                            put("inline", true)
+                        })
+                        
+                        put("fields", fieldsArray)
+                    }
+                    embedsArray.put(embedObj)
+                    put("embeds", embedsArray)
+                }
+
+                // Send HTTP POST Request
+                val url = java.net.URL(webhookUrl)
+                val connection = url.openConnection() as javax.net.ssl.HttpsURLConnection
+                connection.requestMethod = "POST"
+                connection.setRequestProperty("Content-Type", "application/json")
+                connection.setRequestProperty("User-Agent", "Kryptos-Bot")
+                connection.doOutput = true
+
+                val outputStream = connection.outputStream
+                outputStream.write(jsonPayload.toString().toByteArray())
+                outputStream.flush()
+                outputStream.close()
+
+                val responseCode = connection.responseCode
+
+                runOnUiThread {
+                    progressDialog.dismiss()
+                    if (responseCode in 200..299) {
+                        showCustomToast("Report sent successfully. Thank you!")
+                    } else {
+                        showCustomToast("Failed to send report (Error: $responseCode)")
+                    }
+                }
+            } catch (e: Exception) {
+                runOnUiThread {
+                    progressDialog.dismiss()
+                    showCustomToast("Failed to send report: ${e.message}")
+                }
+            }
+        }.start()
     }
 
     private fun isNewerVersion(latest: String, current: String): Boolean {
