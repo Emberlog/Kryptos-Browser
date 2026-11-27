@@ -5,7 +5,6 @@ import android.annotation.SuppressLint
 import android.app.Activity
 import android.app.ActivityManager
 import android.app.Application
-import android.widget.*
 import android.app.Dialog
 import android.app.DownloadManager
 import android.app.KeyguardManager
@@ -32,6 +31,7 @@ import android.speech.SpeechRecognizer
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.Display
+import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -40,6 +40,7 @@ import android.view.WindowManager
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.webkit.CookieManager
+import android.webkit.JavascriptInterface
 import android.webkit.URLUtil
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
@@ -54,6 +55,8 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.core.view.GravityCompat
+import androidx.drawerlayout.widget.DrawerLayout
 import java.io.ByteArrayInputStream
 import java.io.File
 import java.lang.ref.WeakReference
@@ -74,6 +77,7 @@ class MainActivity : AppCompatActivity() {
     private var btnEngineSwitch: ImageView? = null
     private var speedDialGrid: GridLayout? = null
     private var btnBookmark: ImageView? = null
+    private lateinit var drawerLayout: DrawerLayout
 
     private var suggestionsList: ListView? = null
     private var suggestionsAdapter: ArrayAdapter<String>? = null
@@ -92,6 +96,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var bookmarkDb: BookmarkDatabaseHelper
     private lateinit var downloadDb: DownloadDatabaseHelper
     private lateinit var smartDbHelper: SmartSpeedDialDatabaseHelper
+    private lateinit var passwordDb: PasswordDatabaseHelper
     private lateinit var dockController: DockController
 
     private var speechRecognizer: SpeechRecognizer? = null
@@ -102,6 +107,7 @@ class MainActivity : AppCompatActivity() {
     private var customViewCallback: WebChromeClient.CustomViewCallback? = null
     private var isImmersiveMode = false
 
+    // Incognito Auto-Kill State & Detection
     private val isWipingAndKilling = AtomicBoolean(false)
     private var userLeftViaHomeOrRecents = false
     private val screenOffCheckHandler = Handler(Looper.getMainLooper())
@@ -259,10 +265,12 @@ class MainActivity : AppCompatActivity() {
         bookmarkDb = BookmarkDatabaseHelper(this)
         downloadDb = DownloadDatabaseHelper(this)
         smartDbHelper = SmartSpeedDialDatabaseHelper(this)
+        passwordDb = PasswordDatabaseHelper(this)
 
         selectedEngineIndex = prefs.getInt("default_search_engine", 0).coerceIn(0, searchEngines.lastIndex)
         trackerCount = prefs.getInt("tracker_count", 0)
 
+        drawerLayout = findViewById(R.id.drawer_layout)
         webView = findViewById(R.id.webview)
         addressBar = findViewById(R.id.address_bar)
         progressBar = findViewById(R.id.progress_bar)
@@ -373,77 +381,6 @@ class MainActivity : AppCompatActivity() {
 
     private fun shouldKillIncognito(): Boolean {
         return prefs.getBoolean("incognito_kill", true) && TabManager.hasIncognitoTabs()
-    }
-
-    private fun setupEdgePanel() {
-        val drawerLayout = findViewById<androidx.drawerlayout.widget.DrawerLayout>(R.id.drawer_layout)
-
-        // Close Button
-        findViewById<ImageView>(R.id.btn_close_panel)?.setOnClickListener {
-            drawerLayout.closeDrawer(android.view.Gravity.END)
-        }
-
-        // Navigation Items
-        findViewById<android.widget.LinearLayout>(R.id.menu_history)?.setOnClickListener {
-            drawerLayout.closeDrawer(android.view.Gravity.END)
-            startActivity(Intent(this, HistoryActivity::class.java))
-        }
-
-        findViewById<android.widget.LinearLayout>(R.id.menu_bookmarks)?.setOnClickListener {
-            drawerLayout.closeDrawer(android.view.Gravity.END)
-            startActivity(Intent(this, BookmarksActivity::class.java))
-        }
-
-        findViewById<android.widget.LinearLayout>(R.id.menu_downloads)?.setOnClickListener {
-            drawerLayout.closeDrawer(android.view.Gravity.END)
-            startActivity(Intent(this, DownloadsActivity::class.java))
-        }
-
-        // Tools Items
-        findViewById<android.widget.LinearLayout>(R.id.menu_incognito)?.setOnClickListener {
-            drawerLayout.closeDrawer(android.view.Gravity.END)
-            if (TabManager.tabsList.none { it.isIncognito }) {
-                backupNormalCookies()
-                clearAllCookies()
-            }
-            val newTab = TabManager.addNewTab("kryptos://home", "Incognito Tab", true)
-            TabManager.setActiveTab(newTab.id)
-            showHomepageUI()
-            updateTabCountUI()
-            Toast.makeText(this, "Incognito Tab Opened", Toast.LENGTH_SHORT).show()
-        }
-
-        findViewById<android.widget.LinearLayout>(R.id.menu_reader_mode)?.setOnClickListener {
-            drawerLayout.closeDrawer(android.view.Gravity.END)
-            toggleReaderMode()
-        }
-
-        findViewById<android.widget.LinearLayout>(R.id.menu_desktop_site)?.setOnClickListener {
-            drawerLayout.closeDrawer(android.view.Gravity.END)
-            toggleDesktopMode()
-        }
-
-        // Settings
-        findViewById<android.widget.LinearLayout>(R.id.menu_settings)?.setOnClickListener {
-            drawerLayout.closeDrawer(android.view.Gravity.END)
-            startActivity(Intent(this, SettingsActivity::class.java))
-        }
-
-        // Handle Dock Timer when Panel opens/closes
-        drawerLayout.addDrawerListener(object : androidx.drawerlayout.widget.DrawerLayout.DrawerListener {
-            override fun onDrawerSlide(drawerView: View, slideOffset: Float) {}
-            override fun onDrawerOpened(drawerView: View) {
-                if (this@MainActivity::dockController.isInitialized) {
-                    dockController.stopTimer()
-                }
-            }
-            override fun onDrawerClosed(drawerView: View) {
-                if (this@MainActivity::dockController.isInitialized) {
-                    dockController.resetAutoHideTimer()
-                }
-            }
-            override fun onDrawerStateChanged(newState: Int) {}
-        })
     }
 
     private fun isDisplayOn(): Boolean {
@@ -563,6 +500,7 @@ class MainActivity : AppCompatActivity() {
         }
         updateSecureFlag()
     }
+
     private fun setupSuggestions() {
         suggestionsAdapter = object : ArrayAdapter<String>(this, R.layout.item_suggestion, R.id.txt_suggestion, mutableListOf()) {
             override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
@@ -719,13 +657,12 @@ class MainActivity : AppCompatActivity() {
         val smartDials = try {
             smartDbHelper.getTop8Sites().filter { smart ->
                 val domain = UrlUtils.getBaseDomain(smart.url) ?: ""
-                // Filter out hardcoded sites and their subdomains (like m.youtube.com)
                 !domain.endsWith("github.com") && !domain.endsWith("reddit.com") && !domain.endsWith("youtube.com")
             }
         } catch (e: Exception) {
             emptyList()
         }
-        
+
         finalDials.addAll(smartDials.take(5))
 
         for (dial in finalDials) {
@@ -771,7 +708,7 @@ class MainActivity : AppCompatActivity() {
                         smartDbHelper.resetSiteStats(domain)
                     }
                     renderSpeedDials()
-                    Toast.makeText(this, "Removed. Can return if visited frequently.", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, "Removed from Speed Dial", Toast.LENGTH_SHORT).show()
                 } else {
                     Toast.makeText(this, "Cannot remove default sites", Toast.LENGTH_SHORT).show()
                 }
@@ -787,34 +724,6 @@ class MainActivity : AppCompatActivity() {
 
             speedDialGrid?.addView(itemView)
         }
-    }
-
-    private fun showRemoveSpeedDialDialog(dial: HistoryItem) {
-        val dialog = Dialog(this)
-        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
-        dialog.setContentView(R.layout.dialog_custom)
-        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-
-        val title = dialog.findViewById<TextView>(R.id.dialog_title)
-        val message = dialog.findViewById<TextView>(R.id.dialog_message)
-        val btnCancel = dialog.findViewById<TextView>(R.id.btn_dialog_cancel)
-        val btnConfirm = dialog.findViewById<TextView>(R.id.btn_dialog_confirm)
-
-        title.text = "Remove Site"
-        message.text = "Do you want to remove ${dial.title} from Speed Dial?"
-        btnConfirm.text = "Remove"
-        btnConfirm.setTextColor(Color.parseColor("#EF4444"))
-
-        btnCancel.setOnClickListener { dialog.dismiss() }
-        btnConfirm.setOnClickListener {
-            dialog.dismiss()
-            try {
-                dbHelper.removeHistoryForUrl(dial.url)
-            } catch (e: Exception) { }
-            renderSpeedDials()
-            Toast.makeText(this, "Removed from Speed Dial", Toast.LENGTH_SHORT).show()
-        }
-        dialog.show()
     }
 
     private fun loadGrayscaleFavicon(url: String, imageView: ImageView, textView: TextView) {
@@ -969,10 +878,74 @@ class MainActivity : AppCompatActivity() {
         }
 
         findViewById<ImageButton>(R.id.btn_menu)?.setOnClickListener {
-            val drawerLayout = findViewById<androidx.drawerlayout.widget.DrawerLayout>(R.id.drawer_layout)
-            drawerLayout.openDrawer(android.view.Gravity.END)
+            drawerLayout.openDrawer(GravityCompat.END)
         }
     }
+
+    private fun setupEdgePanel() {
+        findViewById<ImageView>(R.id.btn_close_panel)?.setOnClickListener {
+            drawerLayout.closeDrawer(GravityCompat.END)
+        }
+
+        findViewById<LinearLayout>(R.id.menu_history)?.setOnClickListener {
+            drawerLayout.closeDrawer(GravityCompat.END)
+            startActivity(Intent(this, HistoryActivity::class.java))
+        }
+
+        findViewById<LinearLayout>(R.id.menu_bookmarks)?.setOnClickListener {
+            drawerLayout.closeDrawer(GravityCompat.END)
+            startActivity(Intent(this, BookmarksActivity::class.java))
+        }
+
+        findViewById<LinearLayout>(R.id.menu_downloads)?.setOnClickListener {
+            drawerLayout.closeDrawer(GravityCompat.END)
+            startActivity(Intent(this, DownloadsActivity::class.java))
+        }
+
+        findViewById<LinearLayout>(R.id.menu_incognito)?.setOnClickListener {
+            drawerLayout.closeDrawer(GravityCompat.END)
+            if (TabManager.tabsList.none { it.isIncognito }) {
+                backupNormalCookies()
+                clearAllCookies()
+            }
+            val newTab = TabManager.addNewTab("kryptos://home", "Incognito Tab", true)
+            TabManager.setActiveTab(newTab.id)
+            showHomepageUI()
+            updateTabCountUI()
+            Toast.makeText(this, "Incognito Tab Opened", Toast.LENGTH_SHORT).show()
+        }
+
+        findViewById<LinearLayout>(R.id.menu_reader_mode)?.setOnClickListener {
+            drawerLayout.closeDrawer(GravityCompat.END)
+            toggleReaderMode()
+        }
+
+        findViewById<LinearLayout>(R.id.menu_desktop_site)?.setOnClickListener {
+            drawerLayout.closeDrawer(GravityCompat.END)
+            toggleDesktopMode()
+        }
+
+        findViewById<LinearLayout>(R.id.menu_settings)?.setOnClickListener {
+            drawerLayout.closeDrawer(GravityCompat.END)
+            startActivity(Intent(this, SettingsActivity::class.java))
+        }
+
+        drawerLayout.addDrawerListener(object : DrawerLayout.DrawerListener {
+            override fun onDrawerSlide(drawerView: View, slideOffset: Float) {}
+            override fun onDrawerOpened(drawerView: View) {
+                if (this@MainActivity::dockController.isInitialized) {
+                    dockController.stopTimer()
+                }
+            }
+            override fun onDrawerClosed(drawerView: View) {
+                if (this@MainActivity::dockController.isInitialized) {
+                    dockController.resetAutoHideTimer()
+                }
+            }
+            override fun onDrawerStateChanged(newState: Int) {}
+        })
+    }
+
     private fun setupErrorPage() {
         findViewById<Button>(R.id.error_btn_retry)?.setOnClickListener {
             lastFailedUrl?.let { loadUrlOrSearch(it) }
@@ -985,6 +958,10 @@ class MainActivity : AppCompatActivity() {
     private fun setupBackPressHandler() {
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
+                if (drawerLayout.isDrawerOpen(GravityCompat.END)) {
+                    drawerLayout.closeDrawer(GravityCompat.END)
+                    return
+                }
                 if (customView != null) {
                     return
                 }
@@ -1124,6 +1101,7 @@ class MainActivity : AppCompatActivity() {
 
         settings.userAgentString = "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36"
 
+        webView.addJavascriptInterface(WebAppInterface(), "Android")
         webView.webViewClient = KryptosWebViewClient()
         webView.webChromeClient = KryptosWebChromeClient()
 
@@ -1593,6 +1571,90 @@ class MainActivity : AppCompatActivity() {
         super.onDestroy()
     }
 
+    // JavaScript Interface to bridge WebView and Kotlin
+    inner class WebAppInterface {
+        @JavascriptInterface
+        fun savePassword(username: String, password: String) {
+            runOnUiThread {
+                val domain = UrlUtils.getBaseDomain(webView.url ?: "") ?: return@runOnUiThread
+                if (username.isNotEmpty() && password.isNotEmpty()) {
+                    showSavePasswordPrompt(domain, username, password)
+                }
+            }
+        }
+
+        @JavascriptInterface
+        fun getPassword(): String {
+            val domain = UrlUtils.getBaseDomain(webView.url ?: "") ?: return ""
+            val creds = passwordDb.getPassword(domain) ?: return ""
+            return "${creds.first}:::${creds.second}" 
+        }
+    }
+
+    private fun showSavePasswordPrompt(domain: String, username: String, password: String) {
+        val existing = passwordDb.getPassword(domain)
+        if (existing != null && existing.first == username && existing.second == password) {
+            return
+        }
+
+        val dialog = Dialog(this)
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
+        dialog.setContentView(R.layout.dialog_save_password)
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+
+        val txtDomain = dialog.findViewById<TextView>(R.id.dialog_domain_text)
+        val etName = dialog.findViewById<EditText>(R.id.dialog_password_name)
+        val btnCancel = dialog.findViewById<TextView>(R.id.btn_dialog_cancel_pass)
+        val btnSave = dialog.findViewById<TextView>(R.id.btn_dialog_save_pass)
+
+        txtDomain.text = "For $domain"
+
+        btnCancel.setOnClickListener { dialog.dismiss() }
+        btnSave.setOnClickListener {
+            val accountName = etName.text.toString().trim().ifEmpty { domain }
+            passwordDb.savePassword(domain, accountName, username, password)
+            Toast.makeText(this, "Password saved successfully", Toast.LENGTH_SHORT).show()
+            dialog.dismiss()
+        }
+
+        dialog.show()
+    }
+
+    private fun injectPasswordScripts() {
+        val autoFillJS = """
+            (function() {
+                var userFields = document.querySelectorAll('input[type="text"], input[type="email"], input[name*="user"], input[name*="email"]');
+                var passFields = document.querySelectorAll('input[type="password"]');
+                if (userFields.length > 0 && passFields.length > 0) {
+                    var creds = window.Android.getPassword();
+                    if (creds && creds !== "") {
+                        var parts = creds.split(":::");
+                        if (parts.length === 2) {
+                            userFields[0].value = parts[0];
+                            passFields[0].value = parts[1];
+                            userFields[0].dispatchEvent(new Event('input', { bubbles: true }));
+                            passFields[0].dispatchEvent(new Event('input', { bubbles: true }));
+                        }
+                    }
+                }
+            })();
+        """.trimIndent()
+        webView.evaluateJavascript(autoFillJS, null)
+
+        val autoCaptureJS = """
+            (function() {
+                document.addEventListener('submit', function(e) {
+                    var passField = document.querySelector('input[type="password"]');
+                    var userField = document.querySelector('input[type="text"], input[type="email"]');
+                    if (passField && userField && passField.value && userField.value) {
+                        window.Android.savePassword(userField.value, passField.value);
+                    }
+                }, true);
+            })();
+        """.trimIndent()
+        webView.evaluateJavascript(autoCaptureJS, null)
+    }
+
     inner class KryptosWebViewClient : WebViewClient() {
 
         override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
@@ -1697,7 +1759,6 @@ class MainActivity : AppCompatActivity() {
             if (url != "about:blank" && url != null) {
                 val activeTab = TabManager.getActiveTab()
                 
-                // NEW FIX: Agar active tab home hai, toh late load hone wali site (jaise YouTube) ko ignore karo
                 if (activeTab?.url == "kryptos://home") {
                     return
                 }
@@ -1733,6 +1794,7 @@ class MainActivity : AppCompatActivity() {
                 
                 startTrackingTime()
                 renderSpeedDials()
+                injectPasswordScripts() // Inject password scripts on every page finish
             }
         }
 
