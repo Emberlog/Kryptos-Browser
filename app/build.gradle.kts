@@ -21,10 +21,14 @@ android {
         applicationId = "com.kryptos.browser"
         minSdk = 26
         targetSdk = 34
-        versionCode = 9
-        versionName = "5.0.2"
+        versionCode = 10
+        versionName = "6.0.0"
+        buildConfigField("String", "DISCORD_WEBHOOK_URL", "\"${System.getenv("DISCORD_WEBHOOK_URL") ?: ""}\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+    buildFeatures {
+        buildConfig = true
     }
 
     buildTypes {
