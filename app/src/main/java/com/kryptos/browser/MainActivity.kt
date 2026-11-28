@@ -1085,6 +1085,28 @@ class MainActivity : AppCompatActivity() {
     @SuppressLint("SetJavaScriptEnabled")
     private fun setupWebView() {
         val settings = webView.settings
+        @SuppressLint("SetJavaScriptEnabled")
+    private fun setupWebView() {
+        val settings = webView.settings
+        
+        // SPEED OPTIMIZATION START
+        // 1. Aggressive Caching (Loads faster on repeat visits)
+        settings.cacheMode = android.webkit.WebSettings.LOAD_DEFAULT
+        settings.databaseEnabled = true
+        settings.domStorageEnabled = true
+        
+        // 2. Render Priority & Hardware Acceleration
+        webView.setLayerType(View.LAYER_TYPE_HARDWARE, null)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            webView.setRendererPriorityPolicy(android.webkit.WebView.RENDERER_PRIORITY_IMPORTANT, false)
+        }
+        // SPEED OPTIMIZATION END
+
+        val cookieManager = CookieManager.getInstance()
+        cookieManager.setAcceptCookie(true)
+        cookieManager.setAcceptThirdPartyCookies(webView, true)
+
+        settings.javaScriptEnabled = true
         
         val cookieManager = CookieManager.getInstance()
         cookieManager.setAcceptCookie(true)
