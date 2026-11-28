@@ -5,7 +5,7 @@ import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 
-class PasswordDatabaseHelper(context: Context) : SQLiteOpenHelper(context, "KryptosPasswords.db", null, 2) { // Version 2
+class PasswordDatabaseHelper(context: Context) : SQLiteOpenHelper(context, "KryptosPasswords.db", null, 2) {
 
     override fun onCreate(db: SQLiteDatabase) {
         val createTable = """
@@ -32,8 +32,9 @@ class PasswordDatabaseHelper(context: Context) : SQLiteOpenHelper(context, "Kryp
         val values = ContentValues().apply {
             put("domain", domain)
             put("account_name", accountName)
-            put("username", username)
-            put("password", password)
+            // Encrypt before saving to database
+            put("username", EncryptionHelper.encrypt(username))
+            put("password", EncryptionHelper.encrypt(password))
         }
         db.insert("passwords", null, values)
         db.close()
@@ -45,8 +46,9 @@ class PasswordDatabaseHelper(context: Context) : SQLiteOpenHelper(context, "Kryp
         
         var credentials: Pair<String, String>? = null
         if (cursor.moveToFirst()) {
-            val user = cursor.getString(0)
-            val pass = cursor.getString(1)
+            // Decrypt when fetching
+            val user = EncryptionHelper.decrypt(cursor.getString(0))
+            val pass = EncryptionHelper.decrypt(cursor.getString(1))
             credentials = Pair(user, pass)
         }
         cursor.close()
@@ -63,8 +65,9 @@ class PasswordDatabaseHelper(context: Context) : SQLiteOpenHelper(context, "Kryp
                 val id = cursor.getInt(0)
                 val domain = cursor.getString(1)
                 val name = cursor.getString(2) ?: domain
-                val user = cursor.getString(3)
-                val pass = cursor.getString(4)
+                // Decrypt when fetching the list
+                val user = EncryptionHelper.decrypt(cursor.getString(3))
+                val pass = EncryptionHelper.decrypt(cursor.getString(4))
                 list.add(SavedPassword(id, domain, name, user, pass))
             } while (cursor.moveToNext())
         }
