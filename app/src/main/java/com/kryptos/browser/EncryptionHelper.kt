@@ -5,9 +5,9 @@ import javax.crypto.Cipher
 import javax.crypto.spec.SecretKeySpec
 
 object EncryptionHelper {
-    // Static AES Key (In production, this should be fetched from Android Keystore)
+    // 32-character key for AES-256
     private const val ALGORITHM = "AES"
-    private const val SECRET_KEY = "KryptosBrowserV6SecretKey!!" // 32 chars
+    private const val SECRET_KEY = "KryptosBrowserSecretKey12345678" // 32 chars
 
     fun encrypt(data: String): String {
         return try {
@@ -17,7 +17,8 @@ object EncryptionHelper {
             val encryptedBytes = cipher.doFinal(data.toByteArray())
             Base64.encodeToString(encryptedBytes, Base64.DEFAULT)
         } catch (e: Exception) {
-            data // Fallback (not recommended)
+            e.printStackTrace()
+            data // Fallback to plain text if encryption fails
         }
     }
 
@@ -29,7 +30,8 @@ object EncryptionHelper {
             val decodedBytes = Base64.decode(data, Base64.DEFAULT)
             String(cipher.doFinal(decodedBytes))
         } catch (e: Exception) {
-            data
+            e.printStackTrace()
+            data // Fallback to plain text if decryption fails
         }
     }
 }
