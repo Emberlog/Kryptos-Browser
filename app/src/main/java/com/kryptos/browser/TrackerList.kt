@@ -2,7 +2,7 @@ package com.kryptos.browser
 
 // Massive list of 500+ known ad, tracking, analytics, and malware domains
 object TrackerList {
-    val blockedDomains = listOf(
+    val blockedDomains = hashsetOf(
         // Google Ads & Analytics
         "doubleclick.net", "google-analytics.com", "googletagmanager.com",
         "adservice.google.com", "googleadservices.com", "googlesyndication.com",
