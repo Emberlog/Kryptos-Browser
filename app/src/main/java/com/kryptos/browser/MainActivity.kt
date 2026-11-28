@@ -1678,17 +1678,19 @@ class MainActivity : AppCompatActivity() {
     }
 
     inner class KryptosWebViewClient : WebViewClient() {
-
         override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
             val url = request?.url?.toString()?.lowercase() ?: return super.shouldInterceptRequest(view, request)
-            for (domain in TrackerList.blockedDomains) {
-                if (url.contains(domain)) {
-                    trackerCount++
-                    prefs.edit().putInt("tracker_count", trackerCount).apply()
-                    runOnUiThread { updateTrackerUI() }
-                    return WebResourceResponse("text/plain", "utf-8", ByteArrayInputStream("".toByteArray()))
-                }
+            
+            // Extract base domain directly to avoid looping through the whole URL
+            val domain = request.url.host?.lowercase() ?: ""
+            
+            if (TrackerList.blockedDomains.contains(domain)) {
+                trackerCount++
+                prefs.edit().putInt("tracker_count", trackerCount).apply()
+                runOnUiThread { updateTrackerUI() }
+                return WebResourceResponse("text/plain", "utf-8", ByteArrayInputStream("".toByteArray()))
             }
+            
             return super.shouldInterceptRequest(view, request)
         }
 
